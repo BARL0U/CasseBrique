@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>BUNKER: Post-Apo Brick Breaker</title>
+  <style>
+    :root {
+      --bg-color: #0b0d10;
+      --card-bg: #141820;
+      --accent-green: #39ff14;
+      --accent-orange: #ffb703;
+      --accent-red: #ff2a6d;
+      --accent-yellow: #fbee0e;
+      --text-main: #e0e6ed;
+      --text-muted: #8a99ad;
+      --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      font-family: var(--font-family);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      touch-action: none;
+    }
+
+    #game-container {
+      position: relative;
+      width: 100%;
+      max-width: 480px;
+      height: 100vh;
+      max-height: 840px;
+      display: flex;
+      flex-direction: column;
+      background: #0f1218;
+      box-shadow: 0 0 30px rgba(0, 0, 0, 0.8), 0 0 15px rgba(57, 255, 20, 0.1);
+      border-left: 1px solid #1a2332;
+      border-right: 1px solid #1a2332;
+    }
+
+    /* Header HUD */
+    .hud {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 16px;
+      background: var(--card-bg);
+      border-bottom: 2px solid #222c3c;
+      z-index: 10;
+    }
+
+    .hud-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .hud-label {
+      font-size: 10px;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    .hud-value {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--accent-green);
+      font-family: monospace;
+    }
+
+    #lives-container {
+      display: flex;
+      gap: 4px;
+      margin-top: 2px;
+    }
+
+    .heart {
+      width: 14px;
+      height: 14px;
+      background: var(--accent-red);
+      clip-path: polygon(50% 0%, 100% 38%, 82% 100%, 50% 75%, 18% 100%, 0% 38%);
+    }
+
+    /* Canvas */
+    #canvas-wrapper {
+      position: relative;
+      flex: 1;
+      width: 100%;
+      overflow: hidden;
+      background: radial-gradient(circle at center, #131922 0%, #080a0e 100%);
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Controls overlay */
+    #touch-controls {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 120px;
+      z-index: 5;
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 20px;
+      pointer-events: none;
+    }
+
+    .shockwave-btn {
+      pointer-events: auto;
+      align-self: flex-end;
+      margin-bottom: 15px;
+      background: rgba(255, 183, 3, 0.2);
+      border: 1px solid var(--accent-orange);
+      color: var(--accent-orange);
+      padding: 8px 12px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: bold;
+      letter-spacing: 1px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      backdrop-filter: blur(4px);
+    }
+
+    .shockwave-btn:active {
+      background: var(--accent-orange);
+      color: #000;
+    }
+
+    /* Modals / Overlays */
+    .overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(11, 13, 16, 0.92);
+      backdrop-filter: blur(6px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      z-index: 20;
+      text-align: center;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .overlay-title {
+      font-size: 28px;
+      font-weight: 900;
+      letter-spacing: 2px;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      background: linear-gradient(45deg, var(--accent-green), var(--accent-orange));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .overlay-subtitle {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 24px;
+    }
+
+    .stats-card {
+      background: var(--card-bg);
+      border: 1px solid #222c3c;
+      border-radius: 12px;
+      padding: 16px 24px;
+      width: 100%;
+      margin-bottom: 24px;
+    }
+
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+
+    .stat-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 14px;
+      border-radius: 10px;
+      border: none;
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      cursor: pointer;
+      margin-bottom: 12px;
+      transition: transform 0.1s;
+    }
+
+    .btn:active {
+      transform: scale(0.98);
+    }
+
+    .btn-primary {
+      background: var(--accent-green);
+      color: #080a0e;
+      box-shadow: 0 4px 15px rgba(57, 255, 20, 0.3);
+    }
+
+    .btn-secondary {
+      background: #1e2634;
+      color: var(--text-main);
+      border: 1px solid #2e3b50;
+    }
+
+    .btn-discord {
+      background: #5865F2;
+      color: #ffffff;
+      box-shadow: 0 4px 15px rgba(88, 101, 242, 0.3);
+    }
+
+    /* Notification toast */
+    #toast {
+      position: absolute;
+      top: 60px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--accent-green);
+      color: #000;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 800;
+      z-index: 30;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="game-container">
+    <div id="toast">Score copié !</div>
+
+    <!-- HUD Header -->
+    <div class="hud">
+      <div class="hud-item">
+        <span class="hud-label">Score</span>
+        <span class="hud-value" id="score-display">0000</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">Niveau</span>
+        <span class="hud-value" id="level-display" style="color: var(--accent-orange);">1/6</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">Vies</span>
+        <div id="lives-container">
+          <div class="heart"></div>
+          <div class="heart"></div>
+          <div class="heart"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Area de jeu Canvas -->
+    <div id="canvas-wrapper">
+      <canvas id="gameCanvas"></canvas>
+      
+      <div id="touch-controls">
+        <div></div>
+        <button class="shockwave-btn" id="shock-btn" title="Débloque la balle si elle est coincée">
+          ⚡ ONDE DÉBLOCAGE
+        </button>
+      </div>
+    </div>
+
+    <!-- Écran de Départ -->
+    <div id="start-screen" class="overlay">
+      <div class="overlay-title">BUNKER BREAKER</div>
+      <div class="overlay-subtitle">SYSTÈME DE DÉFENSE POST-APOCALYPTIQUE</div>
+      
+      <div class="stats-card">
+        <div class="stat-row">
+          <span style="color: var(--text-muted);">Meilleur Score :</span>
+          <span id="start-highscore" style="font-weight: bold; color: var(--accent-yellow);">0</span>
+        </div>
+        <div class="stat-row">
+          <span style="color: var(--text-muted);">Niveaux :</span>
+          <span>6 Formes Bunker</span>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" id="start-btn">DÉMARRER LA PARTIE</button>
+    </div>
+
+    <!-- Écran Game Over / Victoire -->
+    <div id="end-screen" class="overlay hidden">
+      <div class="overlay-title" id="end-title">MISSION ÉCHOUÉE</div>
+      <div class="overlay-subtitle" id="end-subtitle">LE BUNKER A ÉTÉ COMPROMIS</div>
+
+      <div class="stats-card">
+        <div class="stat-row">
+          <span style="color: var(--text-muted);">Score Final :</span>
+          <span id="end-score" style="font-weight: bold; color: var(--accent-green); font-size: 18px;">0</span>
+        </div>
+        <div class="stat-row">
+          <span style="color: var(--text-muted);">Record :</span>
+          <span id="end-highscore" style="font-weight: bold; color: var(--accent-yellow);">0</span>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" id="restart-btn">RÉESSAYER</button>
+      <button class="btn btn-discord" id="share-btn">PARTAGER SUR DISCORD 📋</button>
+    </div>
+  </div>
+
+  <script>
+    // --- AUDIO SYNTHESIZER ---
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    let audioCtx = null;
+
+    function initAudio() {
+      if (!audioCtx) audioCtx = new AudioContext();
+    }
+
+    function playSound(type) {
+      if (!audioCtx) return;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+
+      const now = audioCtx.currentTime;
+
+      if (type === 'bounce') {
+        osc.frequency.setValueAtTime(300, now);
+        osc.frequency.exponentialRampToValueAtTime(150, now + 0.05);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.05);
+        osc.start(now);
+        osc.stop(now + 0.05);
+      } else if (type === 'brick') {
+        osc.frequency.setValueAtTime(500, now);
+        osc.frequency.exponentialRampToValueAtTime(800, now + 0.08);
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.08);
+        osc.start(now);
+        osc.stop(now + 0.08);
+      } else if (type === 'explode') {
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(120, now);
+        osc.frequency.linearRampToValueAtTime(40, now + 0.2);
+        gain.gain.setValueAtTime(0.4, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.2);
+        osc.start(now);
+        osc.stop(now + 0.2);
+      } else if (type === 'powerup') {
+        osc.frequency.setValueAtTime(400, now);
+        osc.frequency.exponentialRampToValueAtTime(1000, now + 0.15);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.15);
+        osc.start(now);
+        osc.stop(now + 0.15);
+      } else if (type === 'lose') {
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(200, now);
+        osc.frequency.linearRampToValueAtTime(60, now + 0.4);
+        gain.gain.setValueAtTime(0.4, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.4);
+        osc.start(now);
+        osc.stop(now + 0.4);
+      }
+    }
+
+    // --- GAME ENGINE ---
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const wrapper = document.getElementById('canvas-wrapper');
+
+    let WIDTH = 400;
+    let HEIGHT = 600;
+
+    function resize() {
+      WIDTH = wrapper.clientWidth;
+      HEIGHT = wrapper.clientHeight;
+      canvas.width = WIDTH;
+      canvas.height = HEIGHT;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    // Game state
+    let score = 0;
+    let lives = 3;
+    let currentLevel = 0;
+    let gameRunning = false;
+    let highscore = localStorage.getItem('bunker_breaker_hs') || 0;
+
+    // Paddle
+    const paddle = {
+      x: 0,
+      y: 0,
+      w: 80,
+      h: 12,
+      speed: 8,
+      dx: 0
+    };
+
+    // Balls array
+    let balls = [];
+
+    // Bricks array
+    let bricks = [];
+    
+    // Powerups array
+    let powerups = [];
+
+    // Particles
+    let particles = [];
+
+    // NIVEAUX OPTIMISÉS ET ACCESSIBLES (Pas de briques incassables bloquantes)
+    // 0: Vide, 1: Normale (Jaune/Vert), 2: Blindée (Orange), 3: Explosive (Rouge), 4: Acier Incassable (Gris)
+    const LEVEL_DESIGNS = [
+      // Niv 1 : Trèfle Radioactif
+      {
+        name: "RADIATION",
+        cols: 9,
+        rows: 8,
+        map: [
+          0,0,1,1,1,1,1,0,0,
+          0,1,1,3,1,3,1,1,0,
+          1,1,0,0,1,0,0,1,1,
+          1,3,0,1,1,1,0,3,1,
+          1,1,1,1,4,1,1,1,1,
+          0,1,1,0,1,0,1,1,0,
+          0,0,1,1,1,1,1,0,0,
+          0,0,0,1,3,1,0,0,0
+        ]
+      },
+      // Niv 2 : Porte de Vault
+      {
+        name: "VAULT DOOR",
+        cols: 9,
+        rows: 8,
+        map: [
+          4,1,1,1,1,1,1,1,4,
+          1,2,2,1,1,1,2,2,1,
+          1,2,1,3,1,3,1,2,1,
+          1,1,3,1,1,1,3,1,1,
+          1,1,3,1,1,1,3,1,1,
+          1,2,1,3,1,3,1,2,1,
+          1,2,2,1,1,1,2,2,1,
+          4,1,1,1,1,1,1,1,4
+        ]
+      },
+      // Niv 3 : Masque à Gaz
+      {
+        name: "GAS MASK",
+        cols: 9,
+        rows: 8,
+        map: [
+          0,1,1,1,1,1,1,1,0,
+          1,1,2,1,1,1,2,1,1,
+          1,2,3,2,1,2,3,2,1,
+          1,1,2,1,1,1,2,1,1,
+          0,0,0,1,3,1,0,0,0,
+          0,0,1,2,3,2,1,0,0,
+          0,0,1,3,3,3,1,0,0,
+          0,0,0,1,1,1,0,0,0
+        ]
+      },
+      // Niv 4 : Barricade
+      {
+        name: "BARRICADE",
+        cols: 9,
+        rows: 7,
+        map: [
+          4,1,4,1,4,1,4,1,4,
+          2,2,2,2,2,2,2,2,2,
+          1,3,1,3,1,3,1,3,1,
+          1,1,1,1,1,1,1,1,1,
+          0,2,0,2,0,2,0,2,0,
+          0,1,3,1,3,1,3,1,0,
+          0,0,1,1,1,1,1,0,0
+        ]
+      },
+      // Niv 5 : Ogive Nucléaire
+      {
+        name: "WARHEAD",
+        cols: 9,
+        rows: 9,
+        map: [
+          0,0,0,0,3,0,0,0,0,
+          0,0,0,1,3,1,0,0,0,
+          0,0,0,1,1,1,0,0,0,
+          0,0,1,2,2,2,1,0,0,
+          0,0,1,2,3,2,1,0,0,
+          0,1,1,1,1,1,1,1,0,
+          0,1,2,1,2,1,2,1,0,
+          0,4,1,3,1,3,1,4,0,
+          0,4,0,1,0,1,0,4,0
+        ]
+      },
+      // Niv 6 : Biohazard
+      {
+        name: "BIOHAZARD",
+        cols: 9,
+        rows: 9,
+        map: [
+          0,1,1,0,0,0,1,1,0,
+          1,3,3,1,0,1,3,3,1,
+          1,3,2,1,1,1,2,3,1,
+          0,1,1,0,3,0,1,1,0,
+          0,0,1,3,4,3,1,0,0,
+          0,1,1,0,3,0,1,1,0,
+          1,3,2,1,1,1,2,3,1,
+          1,3,3,1,0,1,3,3,1,
+          0,1,1,0,0,0,1,1,0
+        ]
+      }
+    ];
+
+    // Initialisation niveau
+    function loadLevel(lvlIndex) {
+      bricks = [];
+      powerups = [];
+      const lvl = LEVEL_DESIGNS[lvlIndex];
+      document.getElementById('level-display').innerText = `${lvlIndex + 1}/${LEVEL_DESIGNS.length}`;
+
+      const padding = 6;
+      const offsetTop = 40;
+      const brickWidth = Math.floor((WIDTH - (padding * (lvl.cols + 1))) / lvl.cols);
+      const brickHeight = 18;
+
+      for (let r = 0; r < lvl.rows; r++) {
+        for (let c = 0; c < lvl.cols; c++) {
+          const type = lvl.map[r * lvl.cols + c];
+          if (type > 0) {
+            bricks.push({
+              x: padding + c * (brickWidth + padding),
+              y: offsetTop + r * (brickHeight + padding),
+              w: brickWidth,
+              h: brickHeight,
+              type: type, // 1: Normale, 2: Blindée, 3: Explosive, 4: Acier
+              hp: type === 2 ? 2 : (type === 4 ? 999 : 1)
+            });
+          }
+        }
+      }
+
+      resetBallAndPaddle();
+    }
+
+    function resetBallAndPaddle() {
+      paddle.w = Math.min(90, WIDTH * 0.22);
+      paddle.x = (WIDTH - paddle.w) / 2;
+      paddle.y = HEIGHT - 50;
+
+      balls = [{
+        x: WIDTH / 2,
+        y: paddle.y - 10,
+        radius: 6,
+        dx: (Math.random() > 0.5 ? 1 : -1) * 3,
+        dy: -4,
+        speed: 5
+      }];
+    }
+
+    // Key handlers
+    let rightPressed = false;
+    let leftPressed = false;
+
+    document.addEventListener('keydown', (e) => {
+      initAudio();
+      if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') rightPressed = true;
+      if (e.key === 'ArrowLeft' || e.key === 'q' || e.key === 'Q' || e.key === 'a' || e.key === 'A') leftPressed = true;
+    });
+
+    document.addEventListener('keyup', (e) => {
+      if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') rightPressed = false;
+      if (e.key === 'ArrowLeft' || e.key === 'q' || e.key === 'Q' || e.key === 'a' || e.key === 'A') leftPressed = false;
+    });
+
+    // Touch handlers
+    canvas.addEventListener('touchmove', (e) => {
+      initAudio();
+      e.preventDefault();
+      const touchX = e.touches[0].clientX - canvas.getBoundingClientRect().left;
+      paddle.x = touchX - paddle.w / 2;
+      // Clamp
+      if (paddle.x < 0) paddle.x = 0;
+      if (paddle.x + paddle.w > WIDTH) paddle.x = WIDTH - paddle.w;
+    }, { passive: false });
+
+    // Shockwave pulse for trapped balls
+    document.getElementById('shock-btn').addEventListener('click', () => {
+      initAudio();
+      playSound('explode');
+      balls.forEach(b => {
+        b.dy = -Math.abs(b.dy || 4);
+        b.dx = (Math.random() - 0.5) * 6;
+      });
+      // Shockwave particle
+      for (let i = 0; i < 20; i++) {
+        particles.push({
+          x: WIDTH / 2,
+          y: HEIGHT / 2,
+          dx: (Math.random() - 0.5) * 10,
+          dy: (Math.random() - 0.5) * 10,
+          life: 30,
+          color: '#ffb703'
+        });
+      }
+    });
+
+    // --- GAME LOOP & UPDATES ---
+    function update() {
+      if (!gameRunning) return;
+
+      // Paddle Movement
+      if (rightPressed && paddle.x < WIDTH - paddle.w) paddle.x += paddle.speed;
+      if (leftPressed && paddle.x > 0) paddle.x -= paddle.speed;
+
+      // Balls Update
+      for (let i = balls.length - 1; i >= 0; i--) {
+        const b = balls[i];
+
+        b.x += b.dx;
+        b.y += b.dy;
+
+        // Anti-stuck angle protection
+        if (Math.abs(b.dy) < 1) b.dy = b.dy < 0 ? -1.5 : 1.5;
+
+        // Wall collisions
+        if (b.x + b.radius > WIDTH) {
+          b.x = WIDTH - b.radius;
+          b.dx = -b.dx;
+          playSound('bounce');
+        } else if (b.x - b.radius < 0) {
+          b.x = b.radius;
+          b.dx = -b.dx;
+          playSound('bounce');
+        }
+
+        if (b.y - b.radius < 0) {
+          b.y = b.radius;
+          b.dy = -b.dy;
+          playSound('bounce');
+        }
+
+        // Paddle Collision
+        if (
+          b.y + b.radius >= paddle.y &&
+          b.y - b.radius <= paddle.y + paddle.h &&
+          b.x >= paddle.x &&
+          b.x <= paddle.x + paddle.w
+        ) {
+          playSound('bounce');
+          b.y = paddle.y - b.radius;
+          
+          // Rebound angle based on hit location
+          const hitPoint = (b.x - (paddle.x + paddle.w / 2)) / (paddle.w / 2);
+          b.dx = hitPoint * 5;
+          b.dy = -Math.abs(b.dy);
+        }
+
+        // Bottom Wall (Ball lost)
+        if (b.y - b.radius > HEIGHT) {
+          balls.splice(i, 1);
+          continue;
+        }
+
+        // Bricks Collision
+        for (let j = bricks.length - 1; j >= 0; j--) {
+          const br = bricks[j];
+          if (
+            b.x + b.radius > br.x &&
+            b.x - b.radius < br.x + br.w &&
+            b.y + b.radius > br.y &&
+            b.y - b.radius < br.y + br.h
+          ) {
+            // Rebound
+            b.dy = -b.dy;
+
+            // Damage brick
+            if (br.type !== 4) { // Not steel
+              br.hp--;
+              if (br.hp <= 0) {
+                // Explosive brick
+                if (br.type === 3) {
+                  playSound('explode');
+                  triggerExplosion(br.x + br.w / 2, br.y + br.h / 2);
+                } else {
+                  playSound('brick');
+                }
+
+                // Drop powerup
+                if (Math.random() < 0.15) {
+                  powerups.push({
+                    x: br.x + br.w / 2,
+                    y: br.y + br.h / 2,
+                    type: Math.random() > 0.5 ? 'P' : 'M' // P: Paddle, M: Multi-ball
+                  });
+                }
+
+                score += br.type === 3 ? 30 : 10;
+                createParticles(br.x + br.w / 2, br.y + br.h / 2, getBrickColor(br.type));
+                bricks.splice(j, 1);
+              } else {
+                playSound('bounce');
+              }
+            } else {
+              playSound('bounce');
+            }
+
+            document.getElementById('score-display').innerText = String(score).padStart(4, '0');
+            break;
+          }
+        }
+      }
+
+      // Check remaining destructible bricks
+      const remainingDestructible = bricks.filter(b => b.type !== 4).length;
+      if (remainingDestructible === 0) {
+        currentLevel++;
+        if (currentLevel < LEVEL_DESIGNS.length) {
+          loadLevel(currentLevel);
+        } else {
+          endGame(true); // Victory
+        }
+      }
+
+      // If all balls lost
+      if (balls.length === 0) {
+        lives--;
+        updateLivesDisplay();
+        playSound('lose');
+        if (lives <= 0) {
+          endGame(false);
+        } else {
+          resetBallAndPaddle();
+        }
+      }
+
+      // Powerups update
+      for (let i = powerups.length - 1; i >= 0; i--) {
+        const p = powerups[i];
+        p.y += 2;
+
+        if (
+          p.y >= paddle.y &&
+          p.y <= paddle.y + paddle.h &&
+          p.x >= paddle.x &&
+          p.x <= paddle.x + paddle.w
+        ) {
+          playSound('powerup');
+          if (p.type === 'P') paddle.w = Math.min(WIDTH * 0.4, paddle.w + 20);
+          if (p.type === 'M' && balls.length > 0) {
+            const src = balls[0];
+            balls.push(
+              { x: src.x, y: src.y, radius: 6, dx: -src.dx, dy: src.dy, speed: src.speed },
+              { x: src.x, y: src.y, radius: 6, dx: src.dx * 0.5, dy: -src.dy, speed: src.speed }
+            );
+          }
+          powerups.splice(i, 1);
+        } else if (p.y > HEIGHT) {
+          powerups.splice(i, 1);
+        }
+      }
+
+      // Particles update
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const pt = particles[i];
+        pt.x += pt.dx;
+        pt.y += pt.dy;
+        pt.life--;
+        if (pt.life <= 0) particles.splice(i, 1);
+      }
+    }
+
+    function triggerExplosion(x, y) {
+      createParticles(x, y, '#ff2a6d', 20);
+      // Destroy nearby bricks
+      for (let i = bricks.length - 1; i >= 0; i--) {
+        const br = bricks[i];
+        if (br.type !== 4) {
+          const dist = Math.hypot(br.x + br.w / 2 - x, br.y + br.h / 2 - y);
+          if (dist < 50) {
+            score += 10;
+            bricks.splice(i, 1);
+          }
+        }
+      }
+    }
+
+    function createParticles(x, y, color, count = 8) {
+      for (let i = 0; i < count; i++) {
+        particles.push({
+          x: x,
+          y: y,
+          dx: (Math.random() - 0.5) * 5,
+          dy: (Math.random() - 0.5) * 5,
+          life: 20,
+          color: color
+        });
+      }
+    }
+
+    function getBrickColor(type) {
+      switch (type) {
+        case 1: return '#39ff14'; // Verte
+        case 2: return '#ffb703'; // Orange
+        case 3: return '#ff2a6d'; // Rouge explosive
+        case 4: return '#4a5568'; // Gris acier
+        default: return '#ffffff';
+      }
+    }
+
+    // --- DRAWING ---
+    function draw() {
+      ctx.clearRect(0, 0, WIDTH, HEIGHT);
+
+      // Background grid lines
+      ctx.strokeStyle = '#141a24';
+      ctx.lineWidth = 1;
+      for (let x = 0; x < WIDTH; x += 30) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, HEIGHT);
+        ctx.stroke();
+      }
+
+      // Draw Bricks
+      bricks.forEach(br => {
+        ctx.fillStyle = getBrickColor(br.type);
+        ctx.fillRect(br.x, br.y, br.w, br.h);
+
+        // Inner detail / highlight
+        ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+        ctx.strokeRect(br.x + 1, br.y + 1, br.w - 2, br.h - 2);
+
+        // Cracks for damaged brick
+        if (br.type === 2 && br.hp === 1) {
+          ctx.strokeStyle = '#000';
+          ctx.beginPath();
+          ctx.moveTo(br.x + 3, br.y + 3);
+          ctx.lineTo(br.x + br.w - 3, br.y + br.h - 3);
+          ctx.stroke();
+        }
+      });
+
+      // Draw Paddle
+      ctx.fillStyle = '#39ff14';
+      ctx.fillRect(paddle.x, paddle.y, paddle.w, paddle.h);
+      ctx.shadowColor = '#39ff14';
+      ctx.shadowBlur = 10;
+      ctx.fillRect(paddle.x, paddle.y, paddle.w, paddle.h);
+      ctx.shadowBlur = 0;
+
+      // Draw Balls
+      balls.forEach(b => {
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
+        ctx.fillStyle = '#fbee0e';
+        ctx.fill();
+        ctx.shadowColor = '#fbee0e';
+        ctx.shadowBlur = 8;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.closePath();
+      });
+
+      // Draw Powerups
+      powerups.forEach(p => {
+        ctx.fillStyle = p.type === 'P' ? '#ffb703' : '#ff2a6d';
+        ctx.fillRect(p.x - 8, p.y - 8, 16, 16);
+        ctx.fillStyle = '#000';
+        ctx.font = 'bold 10px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(p.type, p.x, p.y + 3);
+      });
+
+      // Draw Particles
+      particles.forEach(pt => {
+        ctx.fillStyle = pt.color;
+        ctx.fillRect(pt.x, pt.y, 3, 3);
+      });
+
+      requestAnimationFrame(draw);
+    }
+
+    function gameLoop() {
+      update();
+      setTimeout(gameLoop, 1000 / 60);
+    }
+
+    // --- UI CONTROLS ---
+    function updateLivesDisplay() {
+      const container = document.getElementById('lives-container');
+      container.innerHTML = '';
+      for (let i = 0; i < lives; i++) {
+        const heart = document.createElement('div');
+        heart.className = 'heart';
+        container.appendChild(heart);
+      }
+    }
+
+    function startGame() {
+      score = 0;
+      lives = 3;
+      currentLevel = 0;
+      gameRunning = true;
+      document.getElementById('score-display').innerText = '0000';
+      updateLivesDisplay();
+      loadLevel(0);
+
+      document.getElementById('start-screen').classList.add('hidden');
+      document.getElementById('end-screen').classList.add('hidden');
+    }
+
+    function endGame(victory) {
+      gameRunning = false;
+      if (score > highscore) {
+        highscore = score;
+        localStorage.setItem('bunker_breaker_hs', highscore);
+      }
+
+      document.getElementById('end-title').innerText = victory ? 'BUNKER PURGÉ !' : 'MISSION ÉCHOUÉE';
+      document.getElementById('end-subtitle').innerText = victory ? 'TOUS LES NIVEAUX ONT ÉTÉ NETTOYÉS' : 'LE BUNKER A ÉTÉ COMPROMIS';
+      document.getElementById('end-score').innerText = score;
+      document.getElementById('end-highscore').innerText = highscore;
+
+      document.getElementById('end-screen').classList.remove('hidden');
+    }
+
+    document.getElementById('start-btn').addEventListener('click', () => {
+      initAudio();
+      startGame();
+    });
+
+    document.getElementById('restart-btn').addEventListener('click', () => {
+      initAudio();
+      startGame();
+    });
+
+    // Share to Discord button
+    document.getElementById('share-btn').addEventListener('click', () => {
+      const text = `☣️ **BUNKER BREAKER** ☣️\n🎮 Score : **${score}** pts\n🏆 Meilleur Score : **${highscore}** pts\n🕹️ *Viens battre mon score sur le serveur !*`;
+      navigator.clipboard.writeText(text).then(() => {
+        const toast = document.getElementById('toast');
+        toast.style.opacity = '1';
+        setTimeout(() => toast.style.opacity = '0', 2000);
+      });
+    });
+
+    // Highscore init
+    document.getElementById('start-highscore').innerText = highscore;
+
+    // Start render loop
+    draw();
+    gameLoop();
+  </script>
+</body>
+</html>
