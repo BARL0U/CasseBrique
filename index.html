@@ -37,7 +37,6 @@
       touch-action: none;
     }
 
-    /* Boîtier Arcade : Ratio 9/16 verrouillé pour PC et Mobile */
     #game-container {
       position: relative;
       width: 100vw;
@@ -52,7 +51,6 @@
       border: 1px solid #1a2332;
     }
 
-    /* Marge de sécurité pour les barres de navigation mobiles */
     @media (max-width: 600px) {
       #game-container {
         height: 94vh;
@@ -61,7 +59,6 @@
       }
     }
 
-    /* Header HUD */
     .hud {
       display: flex;
       justify-content: space-between;
@@ -107,7 +104,6 @@
       clip-path: polygon(50% 0%, 100% 38%, 82% 100%, 50% 75%, 18% 100%, 0% 38%);
     }
 
-    /* Zone de Canvas */
     #canvas-wrapper {
       position: relative;
       flex: 1;
@@ -125,7 +121,6 @@
       display: block;
     }
 
-    /* Bouton Onde */
     #touch-controls {
       position: absolute;
       bottom: 12px;
@@ -155,7 +150,6 @@
       color: #000;
     }
 
-    /* Overlays */
     .overlay {
       position: absolute;
       top: 0;
@@ -344,6 +338,13 @@
         gain.gain.linearRampToValueAtTime(0.01, now + 0.08);
         osc.start(now);
         osc.stop(now + 0.08);
+      } else if (type === 'powerup') {
+        osc.frequency.setValueAtTime(400, now);
+        osc.frequency.exponentialRampToValueAtTime(1000, now + 0.15);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.15);
+        osc.start(now);
+        osc.stop(now + 0.15);
       } else if (type === 'explode') {
         osc.type = 'sawtooth';
         osc.frequency.setValueAtTime(120, now);
@@ -377,7 +378,6 @@
       canvas.width = WIDTH;
       canvas.height = HEIGHT;
       if (paddle) {
-        // Raquette placée systématiquement à 12% du bas du terrain réel
         paddle.y = HEIGHT * 0.88;
       }
     }
@@ -500,6 +500,7 @@
     function update() {
       if (!gameRunning) return;
 
+      // Balles
       for (let i = balls.length - 1; i >= 0; i--) {
         const b = balls[i];
         b.x += b.dx;
@@ -545,6 +546,16 @@
               br.hp--;
               if (br.hp <= 0) {
                 playSound('brick');
+                
+                // --- APPARITION DU BONUS (15% DE CHANCE) ---
+                if (Math.random() < 0.15) {
+                  powerups.push({
+                    x: br.x + br.w / 2,
+                    y: br.y + br.h / 2,
+                    type: Math.random() > 0.5 ? 'P' : 'M' // P = Paddle agrandi, M = Multi-balle
+                  });
+                }
+
                 score += 10;
                 bricks.splice(j, 1);
               }
@@ -552,6 +563,30 @@
             document.getElementById('score-display').innerText = String(score).padStart(4, '0');
             break;
           }
+        }
+      }
+
+      // Deplacement & Collision des Powerups (Bonus)
+      for (let i = powerups.length - 1; i >= 0; i--) {
+        const p = powerups[i];
+        p.y += 2; // Vitesse de descente
+
+        if (
+          p.y >= paddle.y &&
+          p.y <= paddle.y + paddle.h &&
+          p.x >= paddle.x &&
+          p.x <= paddle.x + paddle.w
+        ) {
+          playSound('powerup');
+          if (p.type === 'P') {
+            paddle.w = Math.min(WIDTH * 0.35, paddle.w + 20); // Agrandit la raquette
+          } else if (p.type === 'M' && balls.length > 0) {
+            const src = balls[0];
+            balls.push({ x: src.x, y: src.y, radius: 6, dx: -src.dx, dy: src.dy }); // Balle bonus
+          }
+          powerups.splice(i, 1);
+        } else if (p.y > HEIGHT) {
+          powerups.splice(i, 1);
         }
       }
 
@@ -582,14 +617,27 @@
         ctx.stroke();
       }
 
+      // Dessin des briques
       bricks.forEach(br => {
         ctx.fillStyle = br.type === 1 ? '#39ff14' : (br.type === 2 ? '#ffb703' : (br.type === 3 ? '#ff2a6d' : '#4a5568'));
         ctx.fillRect(br.x, br.y, br.w, br.h);
       });
 
+      // Dessin des Bonus
+      powerups.forEach(p => {
+        ctx.fillStyle = p.type === 'P' ? '#ffb703' : '#ff2a6d';
+        ctx.fillRect(p.x - 8, p.y - 8, 16, 16);
+        ctx.fillStyle = '#000';
+        ctx.font = 'bold 10px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(p.type, p.x, p.y + 3);
+      });
+
+      // Dessin Raquette
       ctx.fillStyle = '#39ff14';
       ctx.fillRect(paddle.x, paddle.y, paddle.w, paddle.h);
 
+      // Dessin Balles
       balls.forEach(b => {
         ctx.beginPath();
         ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
