@@ -44,16 +44,22 @@
       max-width: 480px;
       height: 100vh;
       height: -webkit-fill-available;
-      max-height: 850px;
-      aspect-ratio: 9 / 16;
+      max-height: 90vh; /* S'assure que le jeu ne dépasse pas sur PC */
       display: flex;
       flex-direction: column;
       background: #0f1218;
       box-shadow: 0 0 30px rgba(0, 0, 0, 0.8), 0 0 15px rgba(57, 255, 20, 0.1);
       border-left: 1px solid #1a2332;
       border-right: 1px solid #1a2332;
-      padding-bottom: max(20px, env(safe-area-inset-bottom));
       box-sizing: border-box;
+    }
+
+    /* Ajustement spécifique mobile */
+    @media (max-width: 600px) {
+      #game-container {
+        max-height: 100vh;
+        padding-bottom: max(20px, env(safe-area-inset-bottom));
+      }
     }
 
     /* Header HUD */
@@ -119,7 +125,7 @@
     /* Controls overlay */
     #touch-controls {
       position: absolute;
-      bottom: 20px;
+      bottom: 15px;
       left: 0;
       width: 100%;
       height: auto;
@@ -413,9 +419,10 @@
       HEIGHT = wrapper.clientHeight;
       canvas.width = WIDTH;
       canvas.height = HEIGHT;
+      // Repositionne la raquette lors du redimensionnement de la fenêtre
+      if (paddle) paddle.y = HEIGHT - 40;
     }
     window.addEventListener('resize', resize);
-    resize();
 
     // Game state
     let score = 0;
@@ -576,8 +583,8 @@
       paddle.w = Math.min(90, WIDTH * 0.22);
       paddle.x = (WIDTH - paddle.w) / 2;
       
-      // Positionnement relatif équilibré pour PC et mobile
-      paddle.y = HEIGHT - 80;
+      // Fixe la raquette à 40px du bas réel du Canvas
+      paddle.y = HEIGHT - 40;
 
       balls = [{
         x: WIDTH / 2,
@@ -604,7 +611,16 @@
       if (e.key === 'ArrowLeft' || e.key === 'q' || e.key === 'Q' || e.key === 'a' || e.key === 'A') leftPressed = false;
     });
 
-    // Touch handlers
+    // Controls à la souris pour PC
+    canvas.addEventListener('mousemove', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      paddle.x = mouseX - paddle.w / 2;
+      if (paddle.x < 0) paddle.x = 0;
+      if (paddle.x + paddle.w > WIDTH) paddle.x = WIDTH - paddle.w;
+    });
+
+    // Touch handlers pour mobile
     canvas.addEventListener('touchmove', (e) => {
       initAudio();
       e.preventDefault();
@@ -907,6 +923,7 @@
       gameRunning = true;
       document.getElementById('score-display').innerText = '0000';
       updateLivesDisplay();
+      resize();
       loadLevel(0);
 
       document.getElementById('start-screen').classList.add('hidden');
@@ -939,7 +956,7 @@
     });
 
     document.getElementById('share-btn').addEventListener('click', () => {
-      const text = `_ BUNKER BREAKER _\n Score : **${score}** pts\n Record : **${highscore}** pts\n_Viens battre mon score sur le serveur !_`;
+      const text = `☣️ **BUNKER BREAKER** ☣️\n🎮 Score : **${score}** pts\n🏆 Meilleur Score : **${highscore}** pts\n🕹️ *Viens battre mon score sur le serveur !*`;
       navigator.clipboard.writeText(text).then(() => {
         const toast = document.getElementById('toast');
         toast.style.opacity = '1';
@@ -949,6 +966,7 @@
 
     document.getElementById('start-highscore').innerText = highscore;
 
+    resize();
     draw();
     gameLoop();
   </script>
