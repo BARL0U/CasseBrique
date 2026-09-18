@@ -38,13 +38,13 @@
       touch-action: none;
     }
 
+    /* Taille adaptée sur PC */
     #game-container {
       position: relative;
       width: 100%;
-      max-width: 480px;
-      height: 100vh;
-      height: -webkit-fill-available;
-      max-height: 90vh; /* S'assure que le jeu ne dépasse pas sur PC */
+      max-width: 500px;
+      height: 92vh;
+      max-height: 800px;
       display: flex;
       flex-direction: column;
       background: #0f1218;
@@ -54,11 +54,14 @@
       box-sizing: border-box;
     }
 
-    /* Ajustement spécifique mobile */
+    /* Ajustement plein écran sur Mobile */
     @media (max-width: 600px) {
       #game-container {
+        max-width: 100%;
+        height: 100vh;
+        height: -webkit-fill-available;
         max-height: 100vh;
-        padding-bottom: max(20px, env(safe-area-inset-bottom));
+        border: none;
       }
     }
 
@@ -125,7 +128,7 @@
     /* Controls overlay */
     #touch-controls {
       position: absolute;
-      bottom: 15px;
+      bottom: 20px;
       left: 0;
       width: 100%;
       height: auto;
@@ -239,12 +242,6 @@
       background: var(--accent-green);
       color: #080a0e;
       box-shadow: 0 4px 15px rgba(57, 255, 20, 0.3);
-    }
-
-    .btn-secondary {
-      background: #1e2634;
-      color: var(--text-main);
-      border: 1px solid #2e3b50;
     }
 
     .btn-discord {
@@ -414,13 +411,19 @@
     let WIDTH = 400;
     let HEIGHT = 600;
 
+    function isMobile() {
+      return window.innerWidth <= 600;
+    }
+
     function resize() {
       WIDTH = wrapper.clientWidth;
       HEIGHT = wrapper.clientHeight;
       canvas.width = WIDTH;
       canvas.height = HEIGHT;
-      // Repositionne la raquette lors du redimensionnement de la fenêtre
-      if (paddle) paddle.y = HEIGHT - 40;
+      if (paddle) {
+        // Remonte plus haut sur mobile (90px) et reste plus bas sur PC (50px)
+        paddle.y = HEIGHT - (isMobile() ? 90 : 50);
+      }
     }
     window.addEventListener('resize', resize);
 
@@ -453,7 +456,7 @@
     // Particles
     let particles = [];
 
-    // NIVEAUX OPTIMISÉS ET ACCESSIBLES
+    // NIVEAUX OPTIMISÉS
     const LEVEL_DESIGNS = [
       {
         name: "RADIATION",
@@ -556,9 +559,9 @@
       document.getElementById('level-display').innerText = `${lvlIndex + 1}/${LEVEL_DESIGNS.length}`;
 
       const padding = 6;
-      const offsetTop = 40;
+      const offsetTop = 30;
       const brickWidth = Math.floor((WIDTH - (padding * (lvl.cols + 1))) / lvl.cols);
-      const brickHeight = 18;
+      const brickHeight = Math.min(18, Math.floor(HEIGHT * 0.03));
 
       for (let r = 0; r < lvl.rows; r++) {
         for (let c = 0; c < lvl.cols; c++) {
@@ -583,8 +586,8 @@
       paddle.w = Math.min(90, WIDTH * 0.22);
       paddle.x = (WIDTH - paddle.w) / 2;
       
-      // Fixe la raquette à 40px du bas réel du Canvas
-      paddle.y = HEIGHT - 40;
+      // Positionnement adaptatif selon mobile/PC
+      paddle.y = HEIGHT - (isMobile() ? 90 : 50);
 
       balls = [{
         x: WIDTH / 2,
@@ -611,7 +614,7 @@
       if (e.key === 'ArrowLeft' || e.key === 'q' || e.key === 'Q' || e.key === 'a' || e.key === 'A') leftPressed = false;
     });
 
-    // Controls à la souris pour PC
+    // Mouse movement (PC)
     canvas.addEventListener('mousemove', (e) => {
       const rect = canvas.getBoundingClientRect();
       const mouseX = e.clientX - rect.left;
@@ -620,7 +623,7 @@
       if (paddle.x + paddle.w > WIDTH) paddle.x = WIDTH - paddle.w;
     });
 
-    // Touch handlers pour mobile
+    // Touch handlers (Mobile)
     canvas.addEventListener('touchmove', (e) => {
       initAudio();
       e.preventDefault();
@@ -630,7 +633,7 @@
       if (paddle.x + paddle.w > WIDTH) paddle.x = WIDTH - paddle.w;
     }, { passive: false });
 
-    // Shockwave pulse for trapped balls
+    // Shockwave pulse
     document.getElementById('shock-btn').addEventListener('click', () => {
       initAudio();
       playSound('explode');
