@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>BUNKER: Post-Apo Brick Breaker</title>
+  <title>BUNKER ARCADE TERMINAL</title>
   <style>
     :root {
       --bg-color: #0b0d10;
@@ -12,6 +12,7 @@
       --accent-orange: #ffb703;
       --accent-red: #ff2a6d;
       --accent-yellow: #fbee0e;
+      --accent-blue: #00b4d8;
       --text-main: #e0e6ed;
       --text-muted: #8a99ad;
       --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -59,6 +60,7 @@
       }
     }
 
+    /* HUD */
     .hud {
       display: flex;
       justify-content: space-between;
@@ -104,11 +106,11 @@
       clip-path: polygon(50% 0%, 100% 38%, 82% 100%, 50% 75%, 18% 100%, 0% 38%);
     }
 
+    /* ZONE DE JEU */
     #canvas-wrapper {
       position: relative;
       flex: 1;
       width: 100%;
-      height: calc(100% - 50px);
       display: flex;
       justify-content: center;
       align-items: center;
@@ -121,7 +123,8 @@
       display: block;
     }
 
-    #touch-controls {
+    /* TOUCH CONTROLS BREAKBREAKER */
+    #breaker-controls {
       position: absolute;
       bottom: 12px;
       right: 12px;
@@ -139,9 +142,6 @@
       font-size: 11px;
       font-weight: bold;
       letter-spacing: 1px;
-      display: flex;
-      align-items: center;
-      gap: 5px;
       backdrop-filter: blur(4px);
     }
 
@@ -150,13 +150,55 @@
       color: #000;
     }
 
+    /* DPAD SNAKE */
+    #snake-dpad {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-template-rows: repeat(3, 1fr);
+      gap: 6px;
+      width: 150px;
+      height: 150px;
+      position: absolute;
+      bottom: 15px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 5;
+    }
+
+    .dbtn {
+      background: rgba(20, 24, 32, 0.85);
+      border: 1px solid #2e3b50;
+      border-radius: 8px;
+      color: var(--accent-green);
+      font-size: 18px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      backdrop-filter: blur(4px);
+    }
+
+    .dbtn:active {
+      background: var(--accent-green);
+      color: #000;
+    }
+
+    #btn-up { grid-column: 2; grid-row: 1; }
+    #btn-left { grid-column: 1; grid-row: 2; }
+    #btn-right { grid-column: 3; grid-row: 2; }
+    #btn-down { grid-column: 2; grid-row: 3; }
+
+    @media (pointer: fine) {
+      #snake-dpad { display: none; }
+    }
+
+    /* OVERLAYS & MENUS */
     .overlay {
       position: absolute;
       top: 0;
       left: 0;
       width: 100%;
       height: 100%;
-      background: rgba(11, 13, 16, 0.92);
+      background: rgba(11, 13, 16, 0.94);
       backdrop-filter: blur(6px);
       display: flex;
       flex-direction: column;
@@ -172,10 +214,10 @@
     }
 
     .overlay-title {
-      font-size: 28px;
+      font-size: 26px;
       font-weight: 900;
       letter-spacing: 2px;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
       text-transform: uppercase;
       background: linear-gradient(45deg, var(--accent-green), var(--accent-orange));
       -webkit-background-clip: text;
@@ -183,49 +225,43 @@
     }
 
     .overlay-subtitle {
-      font-size: 13px;
+      font-size: 12px;
       color: var(--text-muted);
-      margin-bottom: 24px;
+      margin-bottom: 20px;
     }
 
     .stats-card {
       background: var(--card-bg);
       border: 1px solid #222c3c;
       border-radius: 12px;
-      padding: 16px 24px;
+      padding: 14px 20px;
       width: 100%;
-      margin-bottom: 24px;
+      margin-bottom: 20px;
     }
 
     .stat-row {
       display: flex;
       justify-content: space-between;
-      margin-bottom: 8px;
-      font-size: 14px;
+      margin-bottom: 6px;
+      font-size: 13px;
     }
 
     .btn {
       width: 100%;
-      padding: 14px;
+      padding: 12px;
       border-radius: 10px;
       border: none;
-      font-size: 15px;
+      font-size: 14px;
       font-weight: 800;
       letter-spacing: 1px;
       text-transform: uppercase;
       cursor: pointer;
-      margin-bottom: 12px;
+      margin-bottom: 10px;
     }
 
-    .btn-primary {
-      background: var(--accent-green);
-      color: #080a0e;
-    }
-
-    .btn-discord {
-      background: #5865F2;
-      color: #ffffff;
-    }
+    .btn-primary { background: var(--accent-green); color: #080a0e; }
+    .btn-secondary { background: #1e2634; color: var(--accent-orange); border: 1px solid var(--accent-orange); }
+    .btn-discord { background: #5865F2; color: #ffffff; }
 
     #toast {
       position: absolute;
@@ -250,17 +286,18 @@
   <div id="game-container">
     <div id="toast">Score copié !</div>
 
+    <!-- HUD HEADERS -->
     <div class="hud">
       <div class="hud-item">
         <span class="hud-label">Score</span>
         <span class="hud-value" id="score-display">0000</span>
       </div>
       <div class="hud-item">
-        <span class="hud-label">Niveau</span>
-        <span class="hud-value" id="level-display" style="color: var(--accent-orange);">1/6</span>
+        <span class="hud-label" id="mode-label">Mode</span>
+        <span class="hud-value" id="mode-display" style="color: var(--accent-orange);">MENU</span>
       </div>
-      <div class="hud-item">
-        <span class="hud-label">Vies</span>
+      <div class="hud-item" id="hud-right">
+        <span class="hud-label" id="stat-label">Vies</span>
         <div id="lives-container">
           <div class="heart"></div>
           <div class="heart"></div>
@@ -269,46 +306,56 @@
       </div>
     </div>
 
+    <!-- CANVA MAIN -->
     <div id="canvas-wrapper">
       <canvas id="gameCanvas"></canvas>
       
-      <div id="touch-controls">
+      <!-- CONTROLES MOBILE CASSE BRIQUES -->
+      <div id="breaker-controls" class="hidden">
         <button class="shockwave-btn" id="shock-btn">⚡ ONDE</button>
       </div>
-    </div>
 
-    <div id="start-screen" class="overlay">
-      <div class="overlay-title">BUNKER BREAKER</div>
-      <div class="overlay-subtitle">SYSTÈME DE DÉFENSE POST-APOCALYPTIQUE</div>
-      <div class="stats-card">
-        <div class="stat-row">
-          <span style="color: var(--text-muted);">Meilleur Score :</span>
-          <span id="start-highscore" style="font-weight: bold; color: var(--accent-yellow);">0</span>
-        </div>
+      <!-- CONTROLES MOBILE SNAKE -->
+      <div id="snake-dpad" class="hidden">
+        <div class="dbtn" id="btn-up">▲</div>
+        <div class="dbtn" id="btn-left">◄</div>
+        <div class="dbtn" id="btn-right">►</div>
+        <div class="dbtn" id="btn-down">▼</div>
       </div>
-      <button class="btn btn-primary" id="start-btn">DÉMARRER LA PARTIE</button>
     </div>
 
+    <!-- MENU PRINCIPAL -->
+    <div id="main-menu" class="overlay">
+      <div class="overlay-title">BUNKER TERMINAL</div>
+      <div class="overlay-subtitle">SÉLECTIONNEZ UNE SIMULATION</div>
+      <button class="btn btn-primary" id="select-breaker-btn">🧱 CASSE-BRIQUES (BREAKER)</button>
+      <button class="btn btn-secondary" id="select-snake-btn">🐍 SERPENT-7 (SNAKE)</button>
+    </div>
+
+    <!-- ECRAN GAMEOVER / VICTOIRE -->
     <div id="end-screen" class="overlay hidden">
       <div class="overlay-title" id="end-title">MISSION ÉCHOUÉE</div>
-      <div class="overlay-subtitle" id="end-subtitle">LE BUNKER A ÉTÉ COMPROMIS</div>
+      <div class="overlay-subtitle" id="end-subtitle">PERIMÈTRE COMPROMIS</div>
+
       <div class="stats-card">
         <div class="stat-row">
           <span style="color: var(--text-muted);">Score Final :</span>
-          <span id="end-score" style="font-weight: bold; color: var(--accent-green); font-size: 18px;">0</span>
+          <span id="end-score" style="font-weight: bold; color: var(--accent-green); font-size: 16px;">0</span>
         </div>
         <div class="stat-row">
-          <span style="color: var(--text-muted);">Record :</span>
+          <span style="color: var(--text-muted);">Meilleur Record :</span>
           <span id="end-highscore" style="font-weight: bold; color: var(--accent-yellow);">0</span>
         </div>
       </div>
+
       <button class="btn btn-primary" id="restart-btn">RÉESSAYER</button>
+      <button class="btn btn-secondary" id="menu-btn">MENU PRINCIPAL</button>
       <button class="btn btn-discord" id="share-btn">PARTAGER SUR DISCORD 📋</button>
     </div>
   </div>
 
   <script>
-    // --- AUDIO SYNTHESIZER ---
+    // --- SYNTHÉTISEUR AUDIO WEBAUDIO ---
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     let audioCtx = null;
 
@@ -329,46 +376,44 @@
         osc.frequency.exponentialRampToValueAtTime(150, now + 0.05);
         gain.gain.setValueAtTime(0.2, now);
         gain.gain.linearRampToValueAtTime(0.01, now + 0.05);
-        osc.start(now);
-        osc.stop(now + 0.05);
+        osc.start(now); osc.stop(now + 0.05);
       } else if (type === 'brick') {
         osc.frequency.setValueAtTime(500, now);
         osc.frequency.exponentialRampToValueAtTime(800, now + 0.08);
         gain.gain.setValueAtTime(0.3, now);
         gain.gain.linearRampToValueAtTime(0.01, now + 0.08);
-        osc.start(now);
-        osc.stop(now + 0.08);
+        osc.start(now); osc.stop(now + 0.08);
       } else if (type === 'powerup') {
         osc.frequency.setValueAtTime(400, now);
         osc.frequency.exponentialRampToValueAtTime(1000, now + 0.15);
         gain.gain.setValueAtTime(0.2, now);
         gain.gain.linearRampToValueAtTime(0.01, now + 0.15);
-        osc.start(now);
-        osc.stop(now + 0.15);
+        osc.start(now); osc.stop(now + 0.15);
       } else if (type === 'explode') {
         osc.type = 'sawtooth';
         osc.frequency.setValueAtTime(120, now);
         osc.frequency.linearRampToValueAtTime(40, now + 0.2);
         gain.gain.setValueAtTime(0.4, now);
         gain.gain.linearRampToValueAtTime(0.01, now + 0.2);
-        osc.start(now);
-        osc.stop(now + 0.2);
+        osc.start(now); osc.stop(now + 0.2);
       } else if (type === 'lose') {
         osc.type = 'sawtooth';
         osc.frequency.setValueAtTime(200, now);
         osc.frequency.linearRampToValueAtTime(60, now + 0.4);
         gain.gain.setValueAtTime(0.4, now);
         gain.gain.linearRampToValueAtTime(0.01, now + 0.4);
-        osc.start(now);
-        osc.stop(now + 0.4);
+        osc.start(now); osc.stop(now + 0.4);
       }
     }
 
-    // --- GAME ENGINE ---
+    // --- ENGINE GLOBAL & SYSTEME DE JEU ---
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const wrapper = document.getElementById('canvas-wrapper');
 
+    let currentMode = null; // 'BREAKER' ou 'SNAKE'
+    let score = 0;
+    let gameRunning = false;
     let WIDTH = 400;
     let HEIGHT = 600;
 
@@ -377,122 +422,111 @@
       HEIGHT = wrapper.clientHeight;
       canvas.width = WIDTH;
       canvas.height = HEIGHT;
-      if (paddle) {
-        paddle.y = HEIGHT * 0.88;
-      }
+      if (currentMode === 'BREAKER' && paddle) paddle.y = HEIGHT * 0.88;
     }
     window.addEventListener('resize', resize);
 
-    let score = 0;
+    // --- VARIABLES BREAKER ---
     let lives = 3;
     let currentLevel = 0;
-    let gameRunning = false;
-    let highscore = localStorage.getItem('bunker_breaker_hs') || 0;
-
-    const paddle = {
-      x: 0,
-      y: 0,
-      w: 80,
-      h: 12,
-      speed: 8
-    };
-
+    let paddle = { x: 0, y: 0, w: 80, h: 12 };
     let balls = [];
     let bricks = [];
     let powerups = [];
     let particles = [];
 
-    // LES 6 NIVEAUX DU BUNKER
     const LEVEL_DESIGNS = [
-      {
-        cols: 9, rows: 8,
-        map: [
-          0,0,1,1,1,1,1,0,0,
-          0,1,1,3,1,3,1,1,0,
-          1,1,0,0,1,0,0,1,1,
-          1,3,0,1,1,1,0,3,1,
-          1,1,1,1,4,1,1,1,1,
-          0,1,1,0,1,0,1,1,0,
-          0,0,1,1,1,1,1,0,0,
-          0,0,0,1,3,1,0,0,0
-        ]
-      },
-      {
-        cols: 9, rows: 8,
-        map: [
-          4,1,1,1,1,1,1,1,4,
-          1,2,2,1,1,1,2,2,1,
-          1,2,1,3,1,3,1,2,1,
-          1,1,3,1,1,1,3,1,1,
-          1,1,3,1,1,1,3,1,1,
-          1,2,1,3,1,3,1,2,1,
-          1,2,2,1,1,1,2,2,1,
-          4,1,1,1,1,1,1,1,4
-        ]
-      },
-      {
-        cols: 9, rows: 8,
-        map: [
-          0,1,1,1,1,1,1,1,0,
-          1,1,2,1,1,1,2,1,1,
-          1,2,3,2,1,2,3,2,1,
-          1,1,2,1,1,1,2,1,1,
-          0,0,0,1,3,1,0,0,0,
-          0,0,1,2,3,2,1,0,0,
-          0,0,1,3,3,3,1,0,0,
-          0,0,0,1,1,1,0,0,0
-        ]
-      },
-      {
-        cols: 9, rows: 7,
-        map: [
-          4,1,4,1,4,1,4,1,4,
-          2,2,2,2,2,2,2,2,2,
-          1,3,1,3,1,3,1,3,1,
-          1,1,1,1,1,1,1,1,1,
-          0,2,0,2,0,2,0,2,0,
-          0,1,3,1,3,1,3,1,0,
-          0,0,1,1,1,1,1,0,0
-        ]
-      },
-      {
-        cols: 9, rows: 9,
-        map: [
-          0,0,0,0,3,0,0,0,0,
-          0,0,0,1,3,1,0,0,0,
-          0,0,0,1,1,1,0,0,0,
-          0,0,1,2,2,2,1,0,0,
-          0,0,1,2,3,2,1,0,0,
-          0,1,1,1,1,1,1,1,0,
-          0,1,2,1,2,1,2,1,0,
-          0,4,1,3,1,3,1,4,0,
-          0,4,0,1,0,1,0,4,0
-        ]
-      },
-      {
-        cols: 9, rows: 9,
-        map: [
-          0,1,1,0,0,0,1,1,0,
-          1,3,3,1,0,1,3,3,1,
-          1,3,2,1,1,1,2,3,1,
-          0,1,1,0,3,0,1,1,0,
-          0,0,1,3,4,3,1,0,0,
-          0,1,1,0,3,0,1,1,0,
-          1,3,2,1,1,1,2,3,1,
-          1,3,3,1,0,1,3,3,1,
-          0,1,1,0,0,0,1,1,0
-        ]
-      }
+      { cols: 9, rows: 8, map: [0,0,1,1,1,1,1,0,0, 0,1,1,3,1,3,1,1,0, 1,1,0,0,1,0,0,1,1, 1,3,0,1,1,1,0,3,1, 1,1,1,1,4,1,1,1,1, 0,1,1,0,1,0,1,1,0, 0,0,1,1,1,1,1,0,0, 0,0,0,1,3,1,0,0,0] },
+      { cols: 9, rows: 8, map: [4,1,1,1,1,1,1,1,4, 1,2,2,1,1,1,2,2,1, 1,2,1,3,1,3,1,2,1, 1,1,3,1,1,1,3,1,1, 1,1,3,1,1,1,3,1,1, 1,2,1,3,1,3,1,2,1, 1,2,2,1,1,1,2,2,1, 4,1,1,1,1,1,1,1,4] },
+      { cols: 9, rows: 8, map: [0,1,1,1,1,1,1,1,0, 1,1,2,1,1,1,2,1,1, 1,2,3,2,1,2,3,2,1, 1,1,2,1,1,1,2,1,1, 0,0,0,1,3,1,0,0,0, 0,0,1,2,3,2,1,0,0, 0,0,1,3,3,3,1,0,0, 0,0,0,1,1,1,0,0,0] },
+      { cols: 9, rows: 7, map: [4,1,4,1,4,1,4,1,4, 2,2,2,2,2,2,2,2,2, 1,3,1,3,1,3,1,3,1, 1,1,1,1,1,1,1,1,1, 0,2,0,2,0,2,0,2,0, 0,1,3,1,3,1,3,1,0, 0,0,1,1,1,1,1,0,0] },
+      { cols: 9, rows: 9, map: [0,0,0,0,3,0,0,0,0, 0,0,0,1,3,1,0,0,0, 0,0,0,1,1,1,0,0,0, 0,0,1,2,2,2,1,0,0, 0,0,1,2,3,2,1,0,0, 0,1,1,1,1,1,1,1,0, 0,1,2,1,2,1,2,1,0, 0,4,1,3,1,3,1,4,0, 0,4,0,1,0,1,0,4,0] },
+      { cols: 9, rows: 9, map: [0,1,1,0,0,0,1,1,0, 1,3,3,1,0,1,3,3,1, 1,3,2,1,1,1,2,3,1, 0,1,1,0,3,0,1,1,0, 0,0,1,3,4,3,1,0,0, 0,1,1,0,3,0,1,1,0, 1,3,2,1,1,1,2,3,1, 1,3,3,1,0,1,3,3,1, 0,1,1,0,0,0,1,1,0] }
     ];
 
-    function loadLevel(lvlIndex) {
-      bricks = [];
-      powerups = [];
-      const lvl = LEVEL_DESIGNS[lvlIndex];
-      document.getElementById('level-display').innerText = `${lvlIndex + 1}/${LEVEL_DESIGNS.length}`;
+    // --- VARIABLES SNAKE ---
+    const GRID_SIZE = 20;
+    let tileCountX = 20;
+    let tileCountY = 30;
+    let snake = [];
+    let food = { x: 0, y: 0 };
+    let snakeBonus = null;
+    let dx = 1, dy = 0, nextDx = 1, nextDy = 0;
+    let snakeInterval = null;
 
-      const padding = 6;
-      const offsetTop = 20;
+    // --- CONTROLES UNIFIÉS ---
+    function handleBreakerMove(clientX) {
+      if (currentMode !== 'BREAKER') return;
+      const rect = canvas.getBoundingClientRect();
+      paddle.x = (clientX - rect.left) - paddle.w / 2;
+      if (paddle.x < 0) paddle.x = 0;
+      if (paddle.x + paddle.w > WIDTH) paddle.x = WIDTH - paddle.w;
+    }
+
+    canvas.addEventListener('mousemove', (e) => handleBreakerMove(e.clientX));
+    canvas.addEventListener('touchmove', (e) => {
+      if (currentMode === 'BREAKER') {
+        e.preventDefault();
+        handleBreakerMove(e.touches[0].clientX);
+      }
+    }, { passive: false });
+
+    function changeSnakeDirection(newDx, newDy) {
+      if ((newDx === -dx && newDx !== 0) || (newDy === -dy && newDy !== 0)) return;
+      nextDx = newDx; nextDy = newDy;
+    }
+
+    document.addEventListener('keydown', (e) => {
+      initAudio();
+      if (currentMode === 'SNAKE') {
+        if (e.key === 'ArrowUp' || e.key === 'z' || e.key === 'Z') changeSnakeDirection(0, -1);
+        if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') changeSnakeDirection(0, 1);
+        if (e.key === 'ArrowLeft' || e.key === 'q' || e.key === 'Q') changeSnakeDirection(-1, 0);
+        if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') changeSnakeDirection(1, 0);
+      }
+    });
+
+    document.getElementById('btn-up').addEventListener('touchstart', (e) => { e.preventDefault(); changeSnakeDirection(0, -1); });
+    document.getElementById('btn-down').addEventListener('touchstart', (e) => { e.preventDefault(); changeSnakeDirection(0, 1); });
+    document.getElementById('btn-left').addEventListener('touchstart', (e) => { e.preventDefault(); changeSnakeDirection(-1, 0); });
+    document.getElementById('btn-right').addEventListener('touchstart', (e) => { e.preventDefault(); changeSnakeDirection(1, 0); });
+
+    let touchStartX = 0, touchStartY = 0;
+    canvas.addEventListener('touchstart', (e) => {
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+    }, { passive: true });
+
+    canvas.addEventListener('touchend', (e) => {
+      if (currentMode !== 'SNAKE') return;
+      initAudio();
+      const diffX = e.changedTouches[0].clientX - touchStartX;
+      const diffY = e.changedTouches[0].clientY - touchStartY;
+      if (Math.abs(diffX) > Math.abs(diffY)) {
+        if (diffX > 20) changeSnakeDirection(1, 0);
+        else if (diffX < -20) changeSnakeDirection(-1, 0);
+      } else {
+        if (diffY > 20) changeSnakeDirection(0, 1);
+        else if (diffY < -20) changeSnakeDirection(0, -1);
+      }
+    }, { passive: true });
+
+    document.getElementById('shock-btn').addEventListener('click', () => {
+      if (currentMode !== 'BREAKER') return;
+      initAudio();
+      playSound('explode');
+      balls.forEach(b => {
+        b.dy = -Math.abs(b.dy || 4);
+        b.dx = (Math.random() - 0.5) * 6;
+      });
+    });
+
+    // --- LOGIQUE CASSE BRIQUES ---
+    function loadBreakerLevel(lvlIndex) {
+      bricks = []; powerups = [];
+      const lvl = LEVEL_DESIGNS[lvlIndex];
+      document.getElementById('mode-display').innerText = `${lvlIndex + 1}/6`;
+      const padding = 6, offsetTop = 20;
       const brickWidth = Math.floor((WIDTH - (padding * (lvl.cols + 1))) / lvl.cols);
       const brickHeight = Math.min(18, Math.floor(HEIGHT * 0.035));
 
@@ -503,62 +537,28 @@
             bricks.push({
               x: padding + c * (brickWidth + padding),
               y: offsetTop + r * (brickHeight + padding),
-              w: brickWidth,
-              h: brickHeight,
-              type: type,
-              hp: type === 2 ? 2 : (type === 4 ? 999 : 1)
+              w: brickWidth, h: brickHeight,
+              type: type, hp: type === 2 ? 2 : (type === 4 ? 999 : 1)
             });
           }
         }
       }
-      resetBallAndPaddle();
+      resetBreakerBall();
     }
 
-    function resetBallAndPaddle() {
+    function resetBreakerBall() {
       paddle.w = Math.min(90, WIDTH * 0.22);
       paddle.x = (WIDTH - paddle.w) / 2;
       paddle.y = HEIGHT * 0.88;
-
-      balls = [{
-        x: WIDTH / 2,
-        y: paddle.y - 12,
-        radius: 6,
-        dx: (Math.random() > 0.5 ? 1 : -1) * 3.5,
-        dy: -4.8,
-        superBall: false
-      }];
+      balls = [{ x: WIDTH / 2, y: paddle.y - 12, radius: 6, dx: (Math.random() > 0.5 ? 1 : -1) * 3.5, dy: -4.8, superBall: false }];
     }
-
-    function handleMove(clientX) {
-      const rect = canvas.getBoundingClientRect();
-      const canvasX = clientX - rect.left;
-      paddle.x = canvasX - paddle.w / 2;
-      if (paddle.x < 0) paddle.x = 0;
-      if (paddle.x + paddle.w > WIDTH) paddle.x = WIDTH - paddle.w;
-    }
-
-    canvas.addEventListener('mousemove', (e) => handleMove(e.clientX));
-    canvas.addEventListener('touchmove', (e) => {
-      e.preventDefault();
-      handleMove(e.touches[0].clientX);
-    }, { passive: false });
-
-    document.getElementById('shock-btn').addEventListener('click', () => {
-      initAudio();
-      playSound('explode');
-      balls.forEach(b => {
-        b.dy = -Math.abs(b.dy || 4);
-        b.dx = (Math.random() - 0.5) * 6;
-      });
-    });
 
     function triggerExplosion(x, y) {
       createParticles(x, y, '#ff2a6d', 20);
       for (let i = bricks.length - 1; i >= 0; i--) {
         const br = bricks[i];
         if (br.type !== 4) {
-          const dist = Math.hypot(br.x + br.w / 2 - x, br.y + br.h / 2 - y);
-          if (dist < 55) {
+          if (Math.hypot(br.x + br.w / 2 - x, br.y + br.h / 2 - y) < 55) {
             score += 10;
             bricks.splice(i, 1);
           }
@@ -568,85 +568,41 @@
 
     function createParticles(x, y, color, count = 8) {
       for (let i = 0; i < count; i++) {
-        particles.push({
-          x: x,
-          y: y,
-          dx: (Math.random() - 0.5) * 5,
-          dy: (Math.random() - 0.5) * 5,
-          life: 20,
-          color: color
-        });
+        particles.push({ x: x, y: y, dx: (Math.random() - 0.5) * 5, dy: (Math.random() - 0.5) * 5, life: 20, color: color });
       }
     }
 
-    function update() {
-      if (!gameRunning) return;
-
-      // Balles
+    function updateBreaker() {
       for (let i = balls.length - 1; i >= 0; i--) {
         const b = balls[i];
-        b.x += b.dx;
-        b.y += b.dy;
+        b.x += b.dx; b.y += b.dy;
 
-        if (b.x + b.radius > WIDTH || b.x - b.radius < 0) {
-          b.dx = -b.dx;
-          playSound('bounce');
-        }
-        if (b.y - b.radius < 0) {
-          b.dy = -b.dy;
-          playSound('bounce');
-        }
+        if (b.x + b.radius > WIDTH || b.x - b.radius < 0) { b.dx = -b.dx; playSound('bounce'); }
+        if (b.y - b.radius < 0) { b.dy = -b.dy; playSound('bounce'); }
 
-        if (
-          b.y + b.radius >= paddle.y &&
-          b.y - b.radius <= paddle.y + paddle.h &&
-          b.x >= paddle.x &&
-          b.x <= paddle.x + paddle.w
-        ) {
+        if (b.y + b.radius >= paddle.y && b.y - b.radius <= paddle.y + paddle.h && b.x >= paddle.x && b.x <= paddle.x + paddle.w) {
           playSound('bounce');
           b.y = paddle.y - b.radius;
           const hitPoint = (b.x - (paddle.x + paddle.w / 2)) / (paddle.w / 2);
-          b.dx = hitPoint * 5;
-          b.dy = -Math.abs(b.dy);
+          b.dx = hitPoint * 5; b.dy = -Math.abs(b.dy);
         }
 
-        if (b.y - b.radius > HEIGHT) {
-          balls.splice(i, 1);
-          continue;
-        }
+        if (b.y - b.radius > HEIGHT) { balls.splice(i, 1); continue; }
 
         for (let j = bricks.length - 1; j >= 0; j--) {
           const br = bricks[j];
-          if (
-            b.x + b.radius > br.x &&
-            b.x - b.radius < br.x + br.w &&
-            b.y + b.radius > br.y &&
-            b.y - b.radius < br.y + br.h
-          ) {
-            if (!b.superBall) {
-              b.dy = -b.dy;
-            }
+          if (b.x + b.radius > br.x && b.x - b.radius < br.x + br.w && b.y + b.radius > br.y && b.y - b.radius < br.y + br.h) {
+            if (!b.superBall) b.dy = -b.dy;
 
             if (br.type !== 4) {
               br.hp = b.superBall ? 0 : br.hp - 1;
-
               if (br.hp <= 0) {
-                if (br.type === 3) {
-                  playSound('explode');
-                  triggerExplosion(br.x + br.w / 2, br.y + br.h / 2);
-                } else {
-                  playSound('brick');
-                }
+                if (br.type === 3) { playSound('explode'); triggerExplosion(br.x + br.w / 2, br.y + br.h / 2); }
+                else { playSound('brick'); }
 
-                // Taux d'apparition des Bonus passe a 35%
                 if (Math.random() < 0.35) {
                   const types = ['P', 'M', '+', 'S', 'L'];
-                  const selectedType = types[Math.floor(Math.random() * types.length)];
-                  powerups.push({
-                    x: br.x + br.w / 2,
-                    y: br.y + br.h / 2,
-                    type: selectedType
-                  });
+                  powerups.push({ x: br.x + br.w / 2, y: br.y + br.h / 2, type: types[Math.floor(Math.random() * types.length)] });
                 }
 
                 score += br.type === 3 ? 30 : 10;
@@ -656,158 +612,116 @@
                 playSound('bounce');
                 createParticles(b.x, b.y, '#ffb703', 4);
               }
-            } else {
-              playSound('bounce');
-            }
+            } else { playSound('bounce'); }
+
             document.getElementById('score-display').innerText = String(score).padStart(4, '0');
             break;
           }
         }
       }
 
-      // Deplacement & Attrapage Powerups
       for (let i = powerups.length - 1; i >= 0; i--) {
         const p = powerups[i];
         p.y += 2;
-
-        if (
-          p.y >= paddle.y &&
-          p.y <= paddle.y + paddle.h &&
-          p.x >= paddle.x &&
-          p.x <= paddle.x + paddle.w
-        ) {
+        if (p.y >= paddle.y && p.y <= paddle.y + paddle.h && p.x >= paddle.x && p.x <= paddle.x + paddle.w) {
           playSound('powerup');
-          
-          if (p.type === 'P') {
-            paddle.w = Math.min(WIDTH * 0.35, paddle.w + 20);
-          } else if (p.type === 'M' && balls.length > 0) {
-            const src = balls[0];
-            balls.push({ x: src.x, y: src.y, radius: 6, dx: -src.dx, dy: src.dy, superBall: src.superBall });
-          } else if (p.type === '+') {
-            if (lives < 3) lives++;
-            updateLivesDisplay();
-          } else if (p.type === 'S') {
-            balls.forEach(b => b.superBall = true);
-            setTimeout(() => balls.forEach(b => b.superBall = false), 6000);
-          } else if (p.type === 'L') {
-            balls.forEach(b => {
-              b.dx *= 0.6;
-              b.dy *= 0.6;
-            });
-            setTimeout(() => {
-              balls.forEach(b => {
-                b.dx /= 0.6;
-                b.dy /= 0.6;
-              });
-            }, 6000);
-          }
-
+          if (p.type === 'P') paddle.w = Math.min(WIDTH * 0.35, paddle.w + 20);
+          else if (p.type === 'M' && balls.length > 0) { const src = balls[0]; balls.push({ x: src.x, y: src.y, radius: 6, dx: -src.dx, dy: src.dy, superBall: src.superBall }); }
+          else if (p.type === '+') { if (lives < 3) lives++; updateLivesDisplay(); }
+          else if (p.type === 'S') { balls.forEach(b => b.superBall = true); setTimeout(() => balls.forEach(b => b.superBall = false), 6000); }
+          else if (p.type === 'L') { balls.forEach(b => { b.dx *= 0.6; b.dy *= 0.6; }); setTimeout(() => balls.forEach(b => { b.dx /= 0.6; b.dy /= 0.6; }), 6000); }
           powerups.splice(i, 1);
-        } else if (p.y > HEIGHT) {
-          powerups.splice(i, 1);
-        }
+        } else if (p.y > HEIGHT) { powerups.splice(i, 1); }
       }
 
-      // Particules
       for (let i = particles.length - 1; i >= 0; i--) {
-        const pt = particles[i];
-        pt.x += pt.dx;
-        pt.y += pt.dy;
-        pt.life--;
+        const pt = particles[i]; pt.x += pt.dx; pt.y += pt.dy; pt.life--;
         if (pt.life <= 0) particles.splice(i, 1);
       }
 
-      // Passage de niveau & Fin de partie stricte a 6/6
       if (bricks.filter(b => b.type !== 4).length === 0) {
         currentLevel++;
-        if (currentLevel < LEVEL_DESIGNS.length) {
-          loadLevel(currentLevel);
-        } else {
-          endGame(true);
-        }
+        if (currentLevel < LEVEL_DESIGNS.length) loadBreakerLevel(currentLevel);
+        else endGame(true);
       }
 
       if (balls.length === 0) {
-        lives--;
-        updateLivesDisplay();
-        playSound('lose');
-        if (lives <= 0) {
-          endGame(false);
-        } else {
-          resetBallAndPaddle();
-        }
+        lives--; updateLivesDisplay(); playSound('lose');
+        if (lives <= 0) endGame(false);
+        else resetBreakerBall();
       }
     }
 
+    // --- LOGIQUE SNAKE ---
+    function spawnFood() { food = { x: Math.floor(Math.random() * tileCountX), y: Math.floor(Math.random() * tileCountY) }; }
+    function spawnSnakeBonus() { if (Math.random() < 0.3 && !snakeBonus) snakeBonus = { x: Math.floor(Math.random() * tileCountX), y: Math.floor(Math.random() * tileCountY), timer: 40 }; }
+
+    function updateSnake() {
+      dx = nextDx; dy = nextDy;
+      const head = { x: snake[0].x + dx, y: snake[0].y + dy };
+
+      if (head.x < 0 || head.x >= tileCountX || head.y < 0 || head.y >= tileCountY) { endGame(false); return; }
+      for (let i = 0; i < snake.length; i++) { if (snake[i].x === head.x && snake[i].y === head.y) { endGame(false); return; } }
+
+      snake.unshift(head);
+
+      if (head.x === food.x && head.y === food.y) {
+        score += 10; playSound('brick'); spawnFood(); spawnSnakeBonus();
+        document.getElementById('score-display').innerText = String(score).padStart(4, '0');
+      } else if (snakeBonus && head.x === snakeBonus.x && head.y === snakeBonus.y) {
+        score += 30; playSound('powerup'); snakeBonus = null;
+        document.getElementById('score-display').innerText = String(score).padStart(4, '0');
+      } else {
+        snake.pop();
+      }
+
+      if (snakeBonus) { snakeBonus.timer--; if (snakeBonus.timer <= 0) snakeBonus = null; }
+    }
+
+    // --- RENDU GRAPHIQUE ---
     function draw() {
       ctx.clearRect(0, 0, WIDTH, HEIGHT);
 
+      // Grille
       ctx.strokeStyle = '#141a24';
-      for (let x = 0; x < WIDTH; x += 30) {
-        ctx.beginPath();
-        ctx.moveTo(x, 0); ctx.lineTo(x, HEIGHT);
-        ctx.stroke();
+      const step = currentMode === 'SNAKE' ? GRID_SIZE : 30;
+      for (let x = 0; x < WIDTH; x += step) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, HEIGHT); ctx.stroke(); }
+      if (currentMode === 'SNAKE') { for (let y = 0; y < HEIGHT; y += step) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(WIDTH, y); ctx.stroke(); } }
+
+      if (currentMode === 'BREAKER') {
+        bricks.forEach(br => {
+          ctx.fillStyle = br.type === 1 ? '#39ff14' : (br.type === 2 ? '#ffb703' : (br.type === 3 ? '#ff2a6d' : '#4a5568'));
+          ctx.fillRect(br.x, br.y, br.w, br.h);
+          ctx.strokeStyle = 'rgba(255,255,255,0.2)'; ctx.strokeRect(br.x + 1, br.y + 1, br.w - 2, br.h - 2);
+          if (br.type === 2 && br.hp === 1) {
+            ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(br.x + 4, br.y + 4); ctx.lineTo(br.x + br.w - 4, br.y + br.h - 4); ctx.stroke(); ctx.lineWidth = 1;
+          }
+        });
+
+        powerups.forEach(p => {
+          ctx.fillStyle = p.type === 'P' ? '#ffb703' : (p.type === 'M' ? '#ff2a6d' : (p.type === '+' ? '#39ff14' : (p.type === 'S' ? '#fbee0e' : '#00b4d8')));
+          ctx.fillRect(p.x - 8, p.y - 8, 16, 16);
+          ctx.fillStyle = '#000'; ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(p.type, p.x, p.y + 3);
+        });
+
+        particles.forEach(pt => { ctx.fillStyle = pt.color; ctx.fillRect(pt.x, pt.y, 3, 3); });
+
+        ctx.fillStyle = '#39ff14'; ctx.fillRect(paddle.x, paddle.y, paddle.w, paddle.h);
+        balls.forEach(b => { ctx.beginPath(); ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2); ctx.fillStyle = b.superBall ? '#ff2a6d' : '#fbee0e'; ctx.fill(); ctx.closePath(); });
+      } else if (currentMode === 'SNAKE') {
+        ctx.fillStyle = '#39ff14'; ctx.fillRect(food.x * GRID_SIZE + 2, food.y * GRID_SIZE + 2, GRID_SIZE - 4, GRID_SIZE - 4);
+        if (snakeBonus) { ctx.fillStyle = '#ff2a6d'; ctx.fillRect(snakeBonus.x * GRID_SIZE + 2, snakeBonus.y * GRID_SIZE + 2, GRID_SIZE - 4, GRID_SIZE - 4); }
+        snake.forEach((segment, index) => {
+          ctx.fillStyle = index === 0 ? '#ffb703' : '#39ff14';
+          ctx.fillRect(segment.x * GRID_SIZE + 1, segment.y * GRID_SIZE + 1, GRID_SIZE - 2, GRID_SIZE - 2);
+        });
       }
-
-      // Dessin briques
-      bricks.forEach(br => {
-        ctx.fillStyle = br.type === 1 ? '#39ff14' : (br.type === 2 ? '#ffb703' : (br.type === 3 ? '#ff2a6d' : '#4a5568'));
-        ctx.fillRect(br.x, br.y, br.w, br.h);
-
-        ctx.strokeStyle = 'rgba(255,255,255,0.2)';
-        ctx.strokeRect(br.x + 1, br.y + 1, br.w - 2, br.h - 2);
-
-        if (br.type === 2 && br.hp === 1) {
-          ctx.strokeStyle = '#000';
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.moveTo(br.x + 4, br.y + 4);
-          ctx.lineTo(br.x + br.w - 4, br.y + br.h - 4);
-          ctx.stroke();
-          ctx.lineWidth = 1;
-        }
-      });
-
-      // Dessin Powerups
-      powerups.forEach(p => {
-        if (p.type === 'P') ctx.fillStyle = '#ffb703';
-        else if (p.type === 'M') ctx.fillStyle = '#ff2a6d';
-        else if (p.type === '+') ctx.fillStyle = '#39ff14';
-        else if (p.type === 'S') ctx.fillStyle = '#fbee0e';
-        else if (p.type === 'L') ctx.fillStyle = '#00b4d8';
-
-        ctx.fillRect(p.x - 8, p.y - 8, 16, 16);
-        ctx.fillStyle = '#000';
-        ctx.font = 'bold 10px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText(p.type, p.x, p.y + 3);
-      });
-
-      // Particules
-      particles.forEach(pt => {
-        ctx.fillStyle = pt.color;
-        ctx.fillRect(pt.x, pt.y, 3, 3);
-      });
-
-      // Raquette
-      ctx.fillStyle = '#39ff14';
-      ctx.fillRect(paddle.x, paddle.y, paddle.w, paddle.h);
-
-      // Balles
-      balls.forEach(b => {
-        ctx.beginPath();
-        ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
-        ctx.fillStyle = b.superBall ? '#ff2a6d' : '#fbee0e';
-        ctx.fill();
-        ctx.closePath();
-      });
-
-      requestAnimationFrame(draw);
     }
 
     function gameLoop() {
-      update();
-      setTimeout(gameLoop, 1000 / 60);
+      if (gameRunning && currentMode === 'BREAKER') updateBreaker();
+      draw();
+      requestAnimationFrame(gameLoop);
     }
 
     function updateLivesDisplay() {
@@ -820,47 +734,91 @@
       }
     }
 
-    function startGame() {
-      score = 0;
-      lives = 3;
-      currentLevel = 0;
-      gameRunning = true;
+    // --- STRATÉGIE DE DÉMARRAGE ET NAVIGATION ---
+    function startBreaker() {
+      currentMode = 'BREAKER';
+      document.getElementById('mode-label').innerText = 'NIVEAU';
+      document.getElementById('stat-label').innerText = 'VIES';
+      document.getElementById('hud-right').style.display = 'flex';
+      document.getElementById('breaker-controls').classList.remove('hidden');
+      document.getElementById('snake-dpad').classList.add('hidden');
+      
+      score = 0; lives = 3; currentLevel = 0; gameRunning = true;
       document.getElementById('score-display').innerText = '0000';
       updateLivesDisplay();
       resize();
-      loadLevel(0);
-      document.getElementById('start-screen').classList.add('hidden');
+      loadBreakerLevel(0);
+      document.getElementById('main-menu').classList.add('hidden');
       document.getElementById('end-screen').classList.add('hidden');
+    }
+
+    function startSnake() {
+      currentMode = 'SNAKE';
+      document.getElementById('mode-label').innerText = 'UNITÉ';
+      document.getElementById('mode-display').innerText = 'SERPENT-7';
+      document.getElementById('hud-right').style.display = 'none';
+      document.getElementById('breaker-controls').classList.add('hidden');
+      document.getElementById('snake-dpad').classList.remove('hidden');
+
+      score = 0; dx = 1; dy = 0; nextDx = 1; nextDy = 0;
+      snake = [{ x: 5, y: 10 }, { x: 4, y: 10 }, { x: 3, y: 10 }];
+      tileCountX = Math.floor(WIDTH / GRID_SIZE);
+      tileCountY = Math.floor(HEIGHT / GRID_SIZE);
+      spawnFood(); snakeBonus = null; gameRunning = true;
+      document.getElementById('score-display').innerText = '0000';
+      resize();
+
+      document.getElementById('main-menu').classList.add('hidden');
+      document.getElementById('end-screen').classList.add('hidden');
+
+      if (snakeInterval) clearInterval(snakeInterval);
+      snakeInterval = setInterval(() => { if (gameRunning && currentMode === 'SNAKE') updateSnake(); }, 100);
     }
 
     function endGame(victory) {
       gameRunning = false;
+      if (snakeInterval) clearInterval(snakeInterval);
+      playSound('lose');
+
+      const hsKey = currentMode === 'BREAKER' ? 'bunker_breaker_hs' : 'bunker_snake_hs';
+      let highscore = localStorage.getItem(hsKey) || 0;
       if (score > highscore) {
         highscore = score;
-        localStorage.setItem('bunker_breaker_hs', highscore);
+        localStorage.setItem(hsKey, highscore);
       }
-      document.getElementById('end-title').innerText = victory ? 'BUNKER PURGÉ !' : 'MISSION ÉCHOUÉE';
-      document.getElementById('end-subtitle').innerText = victory ? 'TOUS LES NIVEAUX ONT ÉTÉ NETTOYÉS' : 'LE BUNKER A ÉTÉ COMPROMIS';
+
+      document.getElementById('end-title').innerText = victory ? 'MISSION RÉUSSIE !' : 'MISSION ÉCHOUÉE';
+      document.getElementById('end-subtitle').innerText = victory ? 'OBJECTIFS DU BUNKER ATTEINTS' : 'L\'AGENT A ÉTÉ NEUTRALISÉ';
       document.getElementById('end-score').innerText = score;
       document.getElementById('end-highscore').innerText = highscore;
       document.getElementById('end-screen').classList.remove('hidden');
     }
 
-    document.getElementById('start-btn').addEventListener('click', () => { initAudio(); startGame(); });
-    document.getElementById('restart-btn').addEventListener('click', () => { initAudio(); startGame(); });
+    document.getElementById('select-breaker-btn').addEventListener('click', () => { initAudio(); startBreaker(); });
+    document.getElementById('select-snake-btn').addEventListener('click', () => { initAudio(); startSnake(); });
+    document.getElementById('restart-btn').addEventListener('click', () => { initAudio(); if (currentMode === 'BREAKER') startBreaker(); else startSnake(); });
+    document.getElementById('menu-btn').addEventListener('click', () => {
+      gameRunning = false;
+      if (snakeInterval) clearInterval(snakeInterval);
+      document.getElementById('mode-display').innerText = 'MENU';
+      document.getElementById('end-screen').classList.add('hidden');
+      document.getElementById('main-menu').classList.remove('hidden');
+    });
+
     document.getElementById('share-btn').addEventListener('click', () => {
-      const text = `☣️ **BUNKER BREAKER** ☣️\n🎮 Score : **${score}** pts\n🏆 Meilleur Score : **${highscore}** pts\n🕹️ *Viens battre mon score sur le serveur !*`;
+      const hsKey = currentMode === 'BREAKER' ? 'bunker_breaker_hs' : 'bunker_snake_hs';
+      const highscore = localStorage.getItem(hsKey) || 0;
+      const gameTitle = currentMode === 'BREAKER' ? 'BUNKER BREAKER' : 'SERPENT-7';
+      const text = `☣️ **${gameTitle}** ☣️\n🎮 Score : **${score}** pts\n🏆 Meilleur Score : **${highscore}** pts\n🕹️ *Viens battre mon record sur le serveur !*`;
       navigator.clipboard.writeText(text).then(() => {
         const toast = document.getElementById('toast');
         toast.style.opacity = '1';
         setTimeout(() => toast.style.opacity = '0', 2000);
       });
     });
-    document.getElementById('start-highscore').innerText = highscore;
 
     resize();
-    draw();
-    gameLoop();
+    requestAnimationFrame(gameLoop);
   </script>
 </body>
 </html>
