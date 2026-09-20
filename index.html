@@ -13,6 +13,7 @@
       --accent-red: #ff2a6d;
       --accent-yellow: #fbee0e;
       --accent-blue: #00b4d8;
+      --accent-purple: #9d4edd;
       --text-main: #e0e6ed;
       --text-muted: #8a99ad;
       --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -191,6 +192,44 @@
       #snake-dpad { display: none; }
     }
 
+    /* CONTROLES BLACKJACK */
+    #blackjack-controls {
+      position: absolute;
+      bottom: 15px;
+      left: 0;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 0 16px;
+      z-index: 10;
+    }
+
+    .bj-row {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+    }
+
+    .bj-btn {
+      flex: 1;
+      padding: 10px 0;
+      border-radius: 8px;
+      font-weight: 800;
+      font-size: 12px;
+      letter-spacing: 1px;
+      border: 1px solid transparent;
+      cursor: pointer;
+    }
+
+    .bj-btn-hit { background: var(--accent-green); color: #000; }
+    .bj-btn-stand { background: var(--accent-red); color: #fff; }
+    .bj-btn-double { background: var(--accent-orange); color: #000; }
+    .bj-btn-chip { background: #1f2837; border-color: #3b4c68; color: var(--accent-yellow); }
+    .bj-btn-chip.active { border-color: var(--accent-yellow); background: #332a00; }
+    .bj-btn-deal { background: var(--accent-purple); color: #fff; font-size: 14px; padding: 12px 0; }
+
     /* OVERLAYS & MENUS */
     .overlay {
       position: absolute;
@@ -262,6 +301,7 @@
     .btn-primary { background: var(--accent-green); color: #080a0e; }
     .btn-secondary { background: #1e2634; color: var(--accent-orange); border: 1px solid var(--accent-orange); }
     .btn-mines { background: #1e2634; color: var(--accent-red); border: 1px solid var(--accent-red); }
+    .btn-blackjack { background: #1e2634; color: var(--accent-purple); border: 1px solid var(--accent-purple); }
     .btn-discord { background: #5865F2; color: #ffffff; }
 
     #toast {
@@ -307,10 +347,10 @@
       </div>
     </div>
 
-    <!-- CANVAS MAIN -->
+    <!-- ZONE DU CANVAS & CONTROLES SPECIFIQUES -->
     <div id="canvas-wrapper">
       <canvas id="gameCanvas"></canvas>
-      
+
       <!-- CONTROLES MOBILE CASSE BRIQUES -->
       <div id="breaker-controls" class="hidden">
         <button class="shockwave-btn" id="shock-btn">⚡ ONDE</button>
@@ -323,6 +363,22 @@
         <div class="dbtn" id="btn-right">►</div>
         <div class="dbtn" id="btn-down">▼</div>
       </div>
+
+      <!-- CONTROLES BLACKJACK -->
+      <div id="blackjack-controls" class="hidden">
+        <div class="bj-row" id="bj-bet-row">
+          <button class="bj-btn bj-btn-chip active" data-val="10">+10</button>
+          <button class="bj-btn bj-btn-chip" data-val="25">+25</button>
+          <button class="bj-btn bj-btn-chip" data-val="50">+50</button>
+          <button class="bj-btn bj-btn-chip" id="bj-clear-bet">CRAZ</button>
+        </div>
+        <div class="bj-row" id="bj-action-row">
+          <button class="bj-btn bj-btn-hit" id="bj-hit-btn">TIRER</button>
+          <button class="bj-btn bj-btn-double" id="bj-double-btn">DOUBLER</button>
+          <button class="bj-btn bj-btn-stand" id="bj-stand-btn">RESTER</button>
+        </div>
+        <button class="bj-btn bj-btn-deal" id="bj-deal-btn">DISTRIBUER</button>
+      </div>
     </div>
 
     <!-- MENU PRINCIPAL -->
@@ -332,6 +388,7 @@
       <button class="btn btn-primary" id="select-breaker-btn">🧱 CASSE-BRIQUES (BREAKER)</button>
       <button class="btn btn-secondary" id="select-snake-btn">🐍 SERPENT-7 (SNAKE)</button>
       <button class="btn btn-mines" id="select-mines-btn">☢️ DÉMINAGE SECTEUR</button>
+      <button class="btn btn-blackjack" id="select-bj-btn">🃏 BLACKJACK CLANDESTIN</button>
     </div>
 
     <!-- ECRAN GAMEOVER / VICTOIRE -->
@@ -391,26 +448,26 @@
         gain.gain.setValueAtTime(0.05, now);
         gain.gain.linearRampToValueAtTime(0.01, now + 0.02);
         osc.start(now); osc.stop(now + 0.02);
+      } else if (type === 'card') {
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(400, now);
+        osc.frequency.exponentialRampToValueAtTime(200, now + 0.04);
+        gain.gain.setValueAtTime(0.15, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.04);
+        osc.start(now); osc.stop(now + 0.04);
       } else if (type === 'powerup') {
         osc.frequency.setValueAtTime(400, now);
         osc.frequency.exponentialRampToValueAtTime(1000, now + 0.15);
         gain.gain.setValueAtTime(0.2, now);
         gain.gain.linearRampToValueAtTime(0.01, now + 0.15);
         osc.start(now); osc.stop(now + 0.15);
-      } else if (type === 'explode') {
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(120, now);
-        osc.frequency.linearRampToValueAtTime(40, now + 0.2);
-        gain.gain.setValueAtTime(0.4, now);
-        gain.gain.linearRampToValueAtTime(0.01, now + 0.2);
-        osc.start(now); osc.stop(now + 0.2);
-      } else if (type === 'lose') {
+      } else if (type === 'explode' || type === 'lose') {
         osc.type = 'sawtooth';
         osc.frequency.setValueAtTime(200, now);
-        osc.frequency.linearRampToValueAtTime(60, now + 0.4);
-        gain.gain.setValueAtTime(0.4, now);
-        gain.gain.linearRampToValueAtTime(0.01, now + 0.4);
-        osc.start(now); osc.stop(now + 0.4);
+        osc.frequency.linearRampToValueAtTime(50, now + 0.3);
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.3);
+        osc.start(now); osc.stop(now + 0.3);
       }
     }
 
@@ -419,7 +476,7 @@
     const ctx = canvas.getContext('2d');
     const wrapper = document.getElementById('canvas-wrapper');
 
-    let currentMode = null; // 'BREAKER', 'SNAKE', 'MINES'
+    let currentMode = null; // 'BREAKER', 'SNAKE', 'MINES', 'BLACKJACK'
     let score = 0;
     let gameRunning = false;
     let WIDTH = 400;
@@ -463,7 +520,197 @@
     let mineTimer = 0, mineTimerInterval = null;
     let longTouchTimer = null;
 
-    // --- CONTROLES DÉMINEUR ---
+    // --- VARIABLES BLACKJACK ---
+    let bjDeck = [];
+    let bjPlayerHand = [];
+    let bjDealerHand = [];
+    let bjChips = 100;
+    let bjCurrentBet = 0;
+    let bjChipSelection = 10;
+    let bjState = 'BETTING'; // 'BETTING', 'PLAYING', 'RESOLVED'
+    let bjMessage = 'PLACEZ VOTRE PARI';
+
+    const SUITS = ['♠', '♥', '♦', '♣'];
+    const VALUES = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+
+    function createDeck() {
+      bjDeck = [];
+      for (let s of SUITS) {
+        for (let v of VALUES) {
+          let weight = parseInt(v);
+          if (['J', 'Q', 'K'].includes(v)) weight = 10;
+          if (v === 'A') weight = 11;
+          bjDeck.push({ suit: s, value: v, weight: weight });
+        }
+      }
+      // Shuffle
+      for (let i = bjDeck.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [bjDeck[i], bjDeck[j]] = [bjDeck[j], bjDeck[i]];
+      }
+    }
+
+    function calculateHand(hand) {
+      let score = 0;
+      let aces = 0;
+      for (let card of hand) {
+        score += card.weight;
+        if (card.value === 'A') aces++;
+      }
+      while (score > 21 && aces > 0) {
+        score -= 10;
+        aces--;
+      }
+      return score;
+    }
+
+    function bjUpdateUI() {
+      document.getElementById('score-display').innerText = String(bjChips).padStart(4, '0');
+      
+      const dealBtn = document.getElementById('bj-deal-btn');
+      const betRow = document.getElementById('bj-bet-row');
+      const actionRow = document.getElementById('bj-action-row');
+
+      if (bjState === 'BETTING') {
+        dealBtn.classList.remove('hidden');
+        betRow.classList.remove('hidden');
+        actionRow.classList.add('hidden');
+      } else if (bjState === 'PLAYING') {
+        dealBtn.classList.add('hidden');
+        betRow.classList.add('hidden');
+        actionRow.classList.remove('hidden');
+      } else {
+        dealBtn.classList.remove('hidden');
+        dealBtn.innerText = 'NOUVELLE MAIN';
+        betRow.classList.add('hidden');
+        actionRow.classList.add('hidden');
+      }
+    }
+
+    function bjDeal() {
+      if (bjCurrentBet <= 0) {
+        bjMessage = 'MISE OBLIGATOIRE !';
+        return;
+      }
+      initAudio();
+      createDeck();
+      bjPlayerHand = [bjDeck.pop(), bjDeck.pop()];
+      bjDealerHand = [bjDeck.pop(), bjDeck.pop()];
+      playSound('card');
+
+      bjState = 'PLAYING';
+      bjMessage = 'À VOUS DE JOUER';
+
+      let pScore = calculateHand(bjPlayerHand);
+      if (pScore === 21) {
+        bjResolve(true, 'BLACKJACK !');
+      } else {
+        bjUpdateUI();
+      }
+    }
+
+    function bjHit() {
+      playSound('card');
+      bjPlayerHand.push(bjDeck.pop());
+      let pScore = calculateHand(bjPlayerHand);
+      if (pScore > 21) {
+        bjResolve(false, 'DÉPASSÉ (BUST) !');
+      } else {
+        bjUpdateUI();
+      }
+    }
+
+    function bjStand() {
+      playSound('card');
+      let pScore = calculateHand(bjPlayerHand);
+      let dScore = calculateHand(bjDealerHand);
+
+      while (dScore < 17) {
+        bjDealerHand.push(bjDeck.pop());
+        dScore = calculateHand(bjDealerHand);
+      }
+
+      if (dScore > 21) {
+        bjResolve(true, 'LE CROUPIER DÉPASSE !');
+      } else if (pScore > dScore) {
+        bjResolve(true, 'VOUS GAGNEZ !');
+      } else if (pScore < dScore) {
+        bjResolve(false, 'LE CROUPIER GAGNE');
+      } else {
+        bjResolve(null, 'ÉGALITÉ (PUSH)');
+      }
+    }
+
+    function bjDouble() {
+      if (bjChips < bjCurrentBet) return;
+      bjChips -= bjCurrentBet;
+      bjCurrentBet *= 2;
+      bjHit();
+      if (bjState === 'PLAYING') bjStand();
+    }
+
+    function bjResolve(playerWon, msg) {
+      bjState = 'RESOLVED';
+      bjMessage = msg;
+
+      if (playerWon === true) {
+        playSound('powerup');
+        let winAmount = bjCurrentBet * 2;
+        if (msg === 'BLACKJACK !') winAmount = Math.floor(bjCurrentBet * 2.5);
+        bjChips += winAmount;
+      } else if (playerWon === null) {
+        playSound('bounce');
+        bjChips += bjCurrentBet;
+      } else {
+        playSound('lose');
+      }
+
+      if (bjChips <= 0) {
+        setTimeout(() => endGame(false), 1500);
+      } else {
+        bjUpdateUI();
+      }
+    }
+
+    // --- EVÉNEMENTS BLACKJACK ---
+    document.querySelectorAll('.bj-btn-chip[data-val]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        initAudio();
+        let val = parseInt(e.target.getAttribute('data-val'));
+        if (bjChips >= val) {
+          bjChips -= val;
+          bjCurrentBet += val;
+          playSound('bounce');
+          bjUpdateUI();
+        }
+      });
+    });
+
+    document.getElementById('bj-clear-bet').addEventListener('click', () => {
+      initAudio();
+      bjChips += bjCurrentBet;
+      bjCurrentBet = 0;
+      playSound('bounce');
+      bjUpdateUI();
+    });
+
+    document.getElementById('bj-deal-btn').addEventListener('click', () => {
+      if (bjState === 'RESOLVED') {
+        bjCurrentBet = 0;
+        bjState = 'BETTING';
+        bjMessage = 'PLACEZ VOTRE PARI';
+        document.getElementById('bj-deal-btn').innerText = 'DISTRIBUER';
+        bjUpdateUI();
+      } else {
+        bjDeal();
+      }
+    });
+
+    document.getElementById('bj-hit-btn').addEventListener('click', () => { initAudio(); bjHit(); });
+    document.getElementById('bj-stand-btn').addEventListener('click', () => { initAudio(); bjStand(); });
+    document.getElementById('bj-double-btn').addEventListener('click', () => { initAudio(); bjDouble(); });
+
+    // --- DÉMINAGE LOGIQUE ---
     function calcMinesGrid() {
       mCellSize = Math.floor(Math.min((WIDTH - 20) / mCols, (HEIGHT - 20) / mRows));
       mOffsetX = Math.floor((WIDTH - (mCols * mCellSize)) / 2);
@@ -582,7 +829,6 @@
       toggleFlag(r, c);
     });
 
-    // Mobile long press pour balise
     canvas.addEventListener('touchstart', (e) => {
       if (currentMode !== 'MINES' || !gameRunning) return;
       const { r, c } = getMinesCoords(e);
@@ -801,11 +1047,39 @@
       if (snakeBonus) { snakeBonus.timer--; if (snakeBonus.timer <= 0) snakeBonus = null; }
     }
 
+    // --- DRAW CARD FOR BLACKJACK ---
+    function drawCard(card, x, y, hidden = false) {
+      const cW = 55, cH = 80;
+      ctx.fillStyle = hidden ? '#2a364f' : '#ffffff';
+      ctx.fillRect(x, y, cW, cH);
+      ctx.strokeStyle = hidden ? '#4a5b7d' : '#8a99ad';
+      ctx.strokeRect(x, y, cW, cH);
+
+      if (hidden) {
+        ctx.fillStyle = '#ff2a6d';
+        ctx.font = '16px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('☢️', x + cW / 2, y + cH / 2 + 5);
+      } else {
+        const isRed = ['♥', '♦'].includes(card.suit);
+        ctx.fillStyle = isRed ? '#ff2a6d' : '#000000';
+        ctx.font = 'bold 14px monospace';
+        ctx.textAlign = 'left';
+        ctx.fillText(card.value, x + 5, y + 16);
+        ctx.font = '12px monospace';
+        ctx.fillText(card.suit, x + 5, y + 30);
+
+        ctx.font = '20px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(card.suit, x + cW / 2, y + cH / 2 + 8);
+      }
+    }
+
     // --- RENDU GRAPHIQUE ---
     function draw() {
       ctx.clearRect(0, 0, WIDTH, HEIGHT);
 
-      // Grille
+      // Grille de fond
       ctx.strokeStyle = '#141a24';
       const step = currentMode === 'SNAKE' ? GRID_SIZE : 30;
       for (let x = 0; x < WIDTH; x += step) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, HEIGHT); ctx.stroke(); }
@@ -816,9 +1090,6 @@
           ctx.fillStyle = br.type === 1 ? '#39ff14' : (br.type === 2 ? '#ffb703' : (br.type === 3 ? '#ff2a6d' : '#4a5568'));
           ctx.fillRect(br.x, br.y, br.w, br.h);
           ctx.strokeStyle = 'rgba(255,255,255,0.2)'; ctx.strokeRect(br.x + 1, br.y + 1, br.w - 2, br.h - 2);
-          if (br.type === 2 && br.hp === 1) {
-            ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(br.x + 4, br.y + 4); ctx.lineTo(br.x + br.w - 4, br.y + br.h - 4); ctx.stroke(); ctx.lineWidth = 1;
-          }
         });
 
         powerups.forEach(p => {
@@ -850,28 +1121,47 @@
               ctx.fillStyle = cell.mine ? '#ff2a6d' : '#141820';
               ctx.fillRect(x, y, mCellSize - 2, mCellSize - 2);
               if (cell.mine) {
-                ctx.fillStyle = '#000';
-                ctx.font = 'bold 14px sans-serif';
-                ctx.textAlign = 'center';
-                ctx.fillText('💥', x + mCellSize / 2, y + mCellSize / 2 + 5);
+                ctx.fillStyle = '#000'; ctx.font = 'bold 14px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('💥', x + mCellSize / 2, y + mCellSize / 2 + 5);
               } else if (cell.count > 0) {
-                ctx.fillStyle = colors[cell.count] || '#fff';
-                ctx.font = 'bold 14px sans-serif';
-                ctx.textAlign = 'center';
-                ctx.fillText(cell.count, x + mCellSize / 2, y + mCellSize / 2 + 5);
+                ctx.fillStyle = colors[cell.count] || '#fff'; ctx.font = 'bold 14px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(cell.count, x + mCellSize / 2, y + mCellSize / 2 + 5);
               }
             } else {
               ctx.fillStyle = '#1e2634';
               ctx.fillRect(x, y, mCellSize - 2, mCellSize - 2);
               if (cell.flagged) {
-                ctx.fillStyle = '#ffb703';
-                ctx.font = 'bold 12px sans-serif';
-                ctx.textAlign = 'center';
-                ctx.fillText('⚠️', x + mCellSize / 2, y + mCellSize / 2 + 4);
+                ctx.fillStyle = '#ffb703'; ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('⚠️', x + mCellSize / 2, y + mCellSize / 2 + 4);
               }
             }
           }
         }
+      } else if (currentMode === 'BLACKJACK') {
+        // Rendu Blackjack
+        ctx.fillStyle = 'var(--text-muted)';
+        ctx.font = '12px monospace';
+        ctx.textAlign = 'center';
+        
+        // CROUPIER
+        ctx.fillText('CROUPIER ' + (bjState !== 'PLAYING' && bjDealerHand.length ? `(${calculateHand(bjDealerHand)})` : ''), WIDTH / 2, 35);
+        let dStartX = (WIDTH - (bjDealerHand.length * 60 - 5)) / 2;
+        bjDealerHand.forEach((card, idx) => {
+          drawCard(card, dStartX + idx * 60, 45, bjState === 'PLAYING' && idx === 1);
+        });
+
+        // JOUEUR
+        ctx.fillText(`VOUS (${calculateHand(bjPlayerHand)})`, WIDTH / 2, 175);
+        let pStartX = (WIDTH - (bjPlayerHand.length * 60 - 5)) / 2;
+        bjPlayerHand.forEach((card, idx) => {
+          drawCard(card, pStartX + idx * 60, 185);
+        });
+
+        // MESSAGES ET PARI
+        ctx.fillStyle = 'var(--accent-orange)';
+        ctx.font = 'bold 16px sans-serif';
+        ctx.fillText(bjMessage, WIDTH / 2, 305);
+
+        ctx.fillStyle = 'var(--accent-yellow)';
+        ctx.font = '14px monospace';
+        ctx.fillText(`PARI EN COURS : $${bjCurrentBet} RAT`, WIDTH / 2, 335);
       }
     }
 
@@ -900,6 +1190,7 @@
       document.getElementById('hud-right').style.display = 'flex';
       document.getElementById('breaker-controls').classList.remove('hidden');
       document.getElementById('snake-dpad').classList.add('hidden');
+      document.getElementById('blackjack-controls').classList.add('hidden');
       
       score = 0; lives = 3; currentLevel = 0; gameRunning = true;
       document.getElementById('score-display').innerText = '0000';
@@ -918,6 +1209,7 @@
       document.getElementById('hud-right').style.display = 'none';
       document.getElementById('breaker-controls').classList.add('hidden');
       document.getElementById('snake-dpad').classList.remove('hidden');
+      document.getElementById('blackjack-controls').classList.add('hidden');
 
       score = 0; dx = 1; dy = 0; nextDx = 1; nextDy = 0;
       snake = [{ x: 5, y: 10 }, { x: 4, y: 10 }, { x: 3, y: 10 }];
@@ -943,6 +1235,7 @@
       document.getElementById('hud-right').style.display = 'none';
       document.getElementById('breaker-controls').classList.add('hidden');
       document.getElementById('snake-dpad').classList.add('hidden');
+      document.getElementById('blackjack-controls').classList.add('hidden');
 
       gameRunning = true;
       mineTimer = 0;
@@ -957,6 +1250,31 @@
       mineTimerInterval = setInterval(() => { if (gameRunning && currentMode === 'MINES') mineTimer++; }, 1000);
     }
 
+    function startBlackjack() {
+      currentMode = 'BLACKJACK';
+      document.getElementById('score-label').innerText = '$RAT';
+      document.getElementById('mode-label').innerText = 'TABLE';
+      document.getElementById('mode-display').innerText = '21-VIP';
+      document.getElementById('hud-right').style.display = 'none';
+      document.getElementById('breaker-controls').classList.add('hidden');
+      document.getElementById('snake-dpad').classList.add('hidden');
+      document.getElementById('blackjack-controls').classList.remove('hidden');
+
+      gameRunning = true;
+      bjChips = 100;
+      bjCurrentBet = 0;
+      bjPlayerHand = [];
+      bjDealerHand = [];
+      bjState = 'BETTING';
+      bjMessage = 'PLACEZ VOTRE PARI';
+
+      bjUpdateUI();
+      resize();
+
+      document.getElementById('main-menu').classList.add('hidden');
+      document.getElementById('end-screen').classList.add('hidden');
+    }
+
     function endGame(victory) {
       gameRunning = false;
       if (snakeInterval) clearInterval(snakeInterval);
@@ -969,10 +1287,11 @@
       if (currentMode === 'MINES') {
         hsKey = 'bunker_mines_hs';
         currentVal = mineTimer;
-        // Révéler toutes les mines
         mineGrid.forEach(row => row.forEach(cell => { if (cell.mine) cell.revealed = true; }));
-      } else {
-        playSound('lose');
+      }
+      if (currentMode === 'BLACKJACK') {
+        hsKey = 'bunker_bj_hs';
+        currentVal = bjChips;
       }
 
       let highscore = localStorage.getItem(hsKey) || 0;
@@ -982,20 +1301,25 @@
           localStorage.setItem(hsKey, highscore);
         }
       } else {
-        if (score > highscore) {
-          highscore = score;
+        if (currentVal > highscore) {
+          highscore = currentVal;
           localStorage.setItem(hsKey, highscore);
         }
       }
 
       document.getElementById('end-title').innerText = victory ? 'ZONE SÉCURISÉE !' : 'MISSION ÉCHOUÉE';
-      document.getElementById('end-subtitle').innerText = victory ? 'SECTEUR NETTOYÉ AVEC SUCCÈS' : 'DÉTONATION DETECTÉE DANS LE COMPLEXE';
+      document.getElementById('end-subtitle').innerText = victory ? 'PERFORMANCE EXCEPTIONNELLE' : 'RESSOURCES ÉPUISÉES OU PERDUES';
       
       if (currentMode === 'MINES') {
         document.getElementById('end-score-label').innerText = 'Temps :';
         document.getElementById('end-hs-label').innerText = 'Meilleur Temps :';
         document.getElementById('end-score').innerText = `${mineTimer}s`;
         document.getElementById('end-highscore').innerText = highscore ? `${highscore}s` : 'N/A';
+      } else if (currentMode === 'BLACKJACK') {
+        document.getElementById('end-score-label').innerText = 'Solde $RAT :';
+        document.getElementById('end-hs-label').innerText = 'Meilleur Solde :';
+        document.getElementById('end-score').innerText = `$${bjChips}`;
+        document.getElementById('end-highscore').innerText = `$${highscore}`;
       } else {
         document.getElementById('end-score-label').innerText = 'Score Final :';
         document.getElementById('end-hs-label').innerText = 'Record :';
@@ -1009,12 +1333,14 @@
     document.getElementById('select-breaker-btn').addEventListener('click', () => { initAudio(); startBreaker(); });
     document.getElementById('select-snake-btn').addEventListener('click', () => { initAudio(); startSnake(); });
     document.getElementById('select-mines-btn').addEventListener('click', () => { initAudio(); startMines(); });
+    document.getElementById('select-bj-btn').addEventListener('click', () => { initAudio(); startBlackjack(); });
 
     document.getElementById('restart-btn').addEventListener('click', () => {
       initAudio();
       if (currentMode === 'BREAKER') startBreaker();
       else if (currentMode === 'SNAKE') startSnake();
-      else startMines();
+      else if (currentMode === 'MINES') startMines();
+      else startBlackjack();
     });
 
     document.getElementById('menu-btn').addEventListener('click', () => {
@@ -1033,6 +1359,10 @@
       if (currentMode === 'MINES') {
         gameTitle = 'DÉMINAGE SECTEUR';
         valStr = `Temps d'intervention : **${mineTimer}s**`;
+      }
+      if (currentMode === 'BLACKJACK') {
+        gameTitle = 'BLACKJACK CLANDESTIN';
+        valStr = `Solde de Rations : **$${bjChips} RAT**`;
       }
 
       const text = `☣️ **${gameTitle}** ☣️\n🎮 ${valStr}\n🕹️ *Viens tenter ta chance sur le terminal du bunker !*`;
