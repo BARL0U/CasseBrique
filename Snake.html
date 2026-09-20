@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>BUNKER BREAKER</title>
+  <style>
+    :root {
+      --bg-color: #0b0d10;
+      --card-bg: #141820;
+      --accent-green: #39ff14;
+      --accent-orange: #ffb703;
+      --accent-red: #ff2a6d;
+      --accent-yellow: #fbee0e;
+      --text-main: #e0e6ed;
+      --text-muted: #8a99ad;
+      --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      font-family: var(--font-family);
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      touch-action: none;
+    }
+
+    #game-container {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      max-width: 450px;
+      max-height: 800px;
+      aspect-ratio: 9 / 16;
+      display: flex;
+      flex-direction: column;
+      background: #0f1218;
+      box-shadow: 0 0 30px rgba(0,0,0,0.8), 0 0 15px rgba(57,255,20,0.1);
+      border: 1px solid #1a2332;
+    }
+
+    @media (max-width: 600px) {
+      #game-container {
+        height: 94vh;
+        max-height: 94vh;
+        border-radius: 12px;
+      }
+    }
+
+    .hud {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 16px;
+      background: var(--card-bg);
+      border-bottom: 2px solid #222c3c;
+      z-index: 10;
+      height: 50px;
+    }
+
+    .hud-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .hud-label {
+      font-size: 10px;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    .hud-value {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--accent-green);
+      font-family: monospace;
+    }
+
+    #canvas-wrapper {
+      position: relative;
+      flex: 1;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: radial-gradient(circle at center, #131922 0%, #080a0e 100%);
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(11, 13, 16, 0.92);
+      backdrop-filter: blur(6px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      z-index: 20;
+      text-align: center;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .overlay-title {
+      font-size: 28px;
+      font-weight: 900;
+      letter-spacing: 2px;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      background: linear-gradient(45deg, var(--accent-green), var(--accent-orange));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .overlay-subtitle {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 24px;
+    }
+
+    .stats-card {
+      background: var(--card-bg);
+      border: 1px solid #222c3c;
+      border-radius: 12px;
+      padding: 16px 24px;
+      width: 100%;
+      margin-bottom: 20px;
+    }
+
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 14px;
+      border-radius: 10px;
+      border: none;
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      cursor: pointer;
+      margin-bottom: 10px;
+    }
+
+    .btn-primary {
+      background: var(--accent-green);
+      color: #080a0e;
+    }
+
+    .btn-secondary {
+      background: var(--card-bg);
+      color: var(--accent-orange);
+      border: 1px solid var(--accent-orange);
+    }
+
+    .btn-discord {
+      background: #5865F2;
+      color: #ffffff;
+    }
+
+    #toast {
+      position: absolute;
+      top: 60px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--accent-green);
+      color: #000;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 800;
+      z-index: 30;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="game-container">
+    <div id="toast">Score copié !</div>
+
+    <div class="hud">
+      <div class="hud-item">
+        <span class="hud-label">Score</span>
+        <span class="hud-value" id="score-display">0000</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">Vies</span>
+        <span class="hud-value" id="lives-display" style="color: var(--accent-red);">❤️❤️❤️</span>
+      </div>
+    </div>
+
+    <div id="canvas-wrapper">
+      <canvas id="gameCanvas"></canvas>
+    </div>
+
+    <div id="start-screen" class="overlay">
+      <div class="overlay-title">BUNKER BREAKER</div>
+      <div class="overlay-subtitle">PROTOCOLE DE DÉFENSE TACTIQUE</div>
+      <div class="stats-card">
+        <div class="stat-row">
+          <span style="color: var(--text-muted);">Meilleur Score :</span>
+          <span id="start-highscore" style="font-weight: bold; color: var(--accent-yellow);">0</span>
+        </div>
+      </div>
+      <button class="btn btn-primary" id="start-btn">LANCER LE DÉPLOIEMENT</button>
+      <button class="btn btn-secondary" onclick="window.location.href='snake.html'">JOUER À SERPENT-7 🐍</button>
+    </div>
+
+    <div id="end-screen" class="overlay hidden">
+      <div class="overlay-title" id="end-title">DÉFENSE BATTUE</div>
+      <div class="overlay-subtitle" id="end-subtitle">PÉRIMÈTRE COMPROMIS</div>
+      <div class="stats-card">
+        <div class="stat-row">
+          <span style="color: var(--text-muted);">Score Final :</span>
+          <span id="end-score" style="font-weight: bold; color: var(--accent-green); font-size: 18px;">0</span>
+        </div>
+        <div class="stat-row">
+          <span style="color: var(--text-muted);">Record :</span>
+          <span id="end-highscore" style="font-weight: bold; color: var(--accent-yellow);">0</span>
+        </div>
+      </div>
+      <button class="btn btn-primary" id="restart-btn">RÉESSAYER</button>
+      <button class="btn btn-secondary" onclick="window.location.href='snake.html'">MISSION SERPENT-7 🐍</button>
+      <button class="btn btn-discord" id="share-btn">PARTAGER SUR DISCORD 📋</button>
+    </div>
+  </div>
+
+  <script>
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    let audioCtx = null;
+
+    function initAudio() {
+      if (!audioCtx) audioCtx = new AudioContext();
+    }
+
+    function playSound(type) {
+      if (!audioCtx) return;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      const now = audioCtx.currentTime;
+
+      if (type === 'hit') {
+        osc.frequency.setValueAtTime(300, now);
+        osc.frequency.exponentialRampToValueAtTime(150, now + 0.05);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.05);
+        osc.start(now); osc.stop(now + 0.05);
+      } else if (type === 'break') {
+        osc.frequency.setValueAtTime(600, now);
+        osc.frequency.exponentialRampToValueAtTime(200, now + 0.08);
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.08);
+        osc.start(now); osc.stop(now + 0.08);
+      } else if (type === 'lose') {
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(150, now);
+        osc.frequency.linearRampToValueAtTime(40, now + 0.25);
+        gain.gain.setValueAtTime(0.4, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.25);
+        osc.start(now); osc.stop(now + 0.25);
+      }
+    }
+
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const wrapper = document.getElementById('canvas-wrapper');
+
+    let WIDTH = 300;
+    let HEIGHT = 500;
+
+    let paddle = { x: 0, y: 0, w: 70, h: 10 };
+    let balls = [];
+    let bricks = [];
+    let score = 0;
+    let lives = 3;
+    let gameRunning = false;
+    let animationFrameId = null;
+    let highscore = localStorage.getItem('bunker_breaker_hs') || 0;
+
+    const BRICK_ROWS = 5;
+    const BRICK_COLS = 6;
+    const BRICK_COLORS = ['#ff2a6d', '#ffb703', '#fbee0e', '#39ff14', '#05d9e8'];
+
+    function resize() {
+      WIDTH = wrapper.clientWidth;
+      HEIGHT = wrapper.clientHeight;
+      canvas.width = WIDTH;
+      canvas.height = HEIGHT;
+      paddle.y = HEIGHT * 0.88;
+      paddle.w = Math.min(90, WIDTH * 0.22);
+    }
+    window.addEventListener('resize', resize);
+
+    function initBricks() {
+      bricks = [];
+      const padding = 6;
+      const offsetTop = 40;
+      const brickW = (WIDTH - (BRICK_COLS + 1) * padding) / BRICK_COLS;
+      const brickH = 16;
+
+      for (let r = 0; r < BRICK_ROWS; r++) {
+        for (let c = 0; c < BRICK_COLS; c++) {
+          bricks.push({
+            x: padding + c * (brickW + padding),
+            y: offsetTop + r * (brickH + padding),
+            w: brickW,
+            h: brickH,
+            color: BRICK_COLORS[r % BRICK_COLORS.length],
+            hp: BRICK_ROWS - r
+          });
+        }
+      }
+    }
+
+    function resetBallAndPaddle() {
+      paddle.x = (WIDTH - paddle.w) / 2;
+      balls = [{
+        x: WIDTH / 2,
+        y: paddle.y - 12,
+        radius: 6,
+        dx: (Math.random() > 0.5 ? 1 : -1) * 3.5,
+        dy: -4.8,
+        superBall: false
+      }];
+    }
+
+    function update() {
+      if (!gameRunning) return;
+
+      balls.forEach((b) => {
+        b.x += b.dx;
+        b.y += b.dy;
+
+        if (b.x - b.radius < 0) { b.x = b.radius; b.dx *= -1; playSound('hit'); }
+        if (b.x + b.radius > WIDTH) { b.x = WIDTH - b.radius; b.dx *= -1; playSound('hit'); }
+        if (b.y - b.radius < 0) { b.y = b.radius; b.dy *= -1; playSound('hit'); }
+
+        if (b.y + b.radius >= paddle.y && b.y - b.radius <= paddle.y + paddle.h &&
+            b.x >= paddle.x && b.x <= paddle.x + paddle.w) {
+          let hitPoint = (b.x - (paddle.x + paddle.w / 2)) / (paddle.w / 2);
+          b.dx = hitPoint * 4.5;
+          b.dy = -Math.abs(b.dy);
+          playSound('hit');
+        }
+
+        bricks.forEach((brick) => {
+          if (brick.hp > 0) {
+            if (b.x > brick.x && b.x < brick.x + brick.w &&
+                b.y - b.radius < brick.y + brick.h && b.y + b.radius > brick.y) {
+              b.dy *= -1;
+              brick.hp--;
+              score += 10;
+              document.getElementById('score-display').innerText = String(score).padStart(4, '0');
+              playSound(brick.hp === 0 ? 'break' : 'hit');
+            }
+          }
+        });
+      });
+
+      balls = balls.filter(b => b.y - b.radius < HEIGHT);
+
+      if (balls.length === 0) {
+        lives--;
+        playSound('lose');
+        updateLivesDisplay();
+        if (lives <= 0) {
+          endGame();
+        } else {
+          resetBallAndPaddle();
+        }
+      }
+
+      if (bricks.every(b => b.hp <= 0)) {
+        initBricks();
+        resetBallAndPaddle();
+      }
+    }
+
+    function updateLivesDisplay() {
+      let hearts = '';
+      for (let i = 0; i < lives; i++) hearts += '❤️';
+      document.getElementById('lives-display').innerText = hearts || '💀';
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, WIDTH, HEIGHT);
+
+      ctx.fillStyle = '#39ff14';
+      ctx.shadowBlur = 8;
+      ctx.shadowColor = '#39ff14';
+      ctx.fillRect(paddle.x, paddle.y, paddle.w, paddle.h);
+      ctx.shadowBlur = 0;
+
+      balls.forEach(b => {
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffb703';
+        ctx.fill();
+        ctx.closePath();
+      });
+
+      bricks.forEach(brick => {
+        if (brick.hp > 0) {
+          ctx.fillStyle = brick.color;
+          ctx.fillRect(brick.x, brick.y, brick.w, brick.h);
+        }
+      });
+    }
+
+    function gameLoop() {
+      update();
+      draw();
+      if (gameRunning) animationFrameId = requestAnimationFrame(gameLoop);
+    }
+
+    function movePaddle(clientX) {
+      const rect = canvas.getBoundingClientRect();
+      let touchX = clientX - rect.left;
+      paddle.x = Math.max(0, Math.min(WIDTH - paddle.w, touchX - paddle.w / 2));
+    }
+
+    canvas.addEventListener('mousemove', (e) => { initAudio(); movePaddle(e.clientX); });
+    canvas.addEventListener('touchmove', (e) => {
+      initAudio();
+      e.preventDefault();
+      movePaddle(e.touches[0].clientX);
+    }, { passive: false });
+
+    function startGame() {
+      resize();
+      score = 0;
+      lives = 3;
+      gameRunning = true;
+      document.getElementById('score-display').innerText = '0000';
+      updateLivesDisplay();
+      initBricks();
+      resetBallAndPaddle();
+      document.getElementById('start-screen').classList.add('hidden');
+      document.getElementById('end-screen').classList.add('hidden');
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
+      gameLoop();
+    }
+
+    function endGame() {
+      gameRunning = false;
+      if (score > highscore) {
+        highscore = score;
+        localStorage.setItem('bunker_breaker_hs', highscore);
+      }
+      document.getElementById('end-score').innerText = score;
+      document.getElementById('end-highscore').innerText = highscore;
+      document.getElementById('end-screen').classList.remove('hidden');
+    }
+
+    document.getElementById('start-btn').addEventListener('click', () => { initAudio(); startGame(); });
+    document.getElementById('restart-btn').addEventListener('click', () => { initAudio(); startGame(); });
+    document.getElementById('share-btn').addEventListener('click', () => {
+      const text = `🧱 **BUNKER BREAKER** 🧱\n🎮 Score : **${score}** pts\n🏆 Meilleur Score : **${highscore}** pts\n🕹️ *Viens tenter de casser les défenses du bunker !*`;
+      navigator.clipboard.writeText(text).then(() => {
+        const toast = document.getElementById('toast');
+        toast.style.opacity = '1';
+        setTimeout(() => toast.style.opacity = '0', 2000);
+      });
+    });
+
+    document.getElementById('start-highscore').innerText = highscore;
+  </script>
+</body>
+</html>
