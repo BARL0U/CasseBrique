@@ -123,7 +123,7 @@
       display: block;
     }
 
-    /* TOUCH CONTROLS BREAKBREAKER */
+    /* TOUCH CONTROLS BREAKER */
     #breaker-controls {
       position: absolute;
       bottom: 12px;
@@ -261,6 +261,7 @@
 
     .btn-primary { background: var(--accent-green); color: #080a0e; }
     .btn-secondary { background: #1e2634; color: var(--accent-orange); border: 1px solid var(--accent-orange); }
+    .btn-mines { background: #1e2634; color: var(--accent-red); border: 1px solid var(--accent-red); }
     .btn-discord { background: #5865F2; color: #ffffff; }
 
     #toast {
@@ -286,10 +287,10 @@
   <div id="game-container">
     <div id="toast">Score copié !</div>
 
-    <!-- HUD HEADERS -->
+    <!-- HUD -->
     <div class="hud">
       <div class="hud-item">
-        <span class="hud-label">Score</span>
+        <span class="hud-label" id="score-label">Score</span>
         <span class="hud-value" id="score-display">0000</span>
       </div>
       <div class="hud-item">
@@ -306,7 +307,7 @@
       </div>
     </div>
 
-    <!-- CANVA MAIN -->
+    <!-- CANVAS MAIN -->
     <div id="canvas-wrapper">
       <canvas id="gameCanvas"></canvas>
       
@@ -330,20 +331,21 @@
       <div class="overlay-subtitle">SÉLECTIONNEZ UNE SIMULATION</div>
       <button class="btn btn-primary" id="select-breaker-btn">🧱 CASSE-BRIQUES (BREAKER)</button>
       <button class="btn btn-secondary" id="select-snake-btn">🐍 SERPENT-7 (SNAKE)</button>
+      <button class="btn btn-mines" id="select-mines-btn">☢️ DÉMINAGE SECTEUR</button>
     </div>
 
     <!-- ECRAN GAMEOVER / VICTOIRE -->
     <div id="end-screen" class="overlay hidden">
       <div class="overlay-title" id="end-title">MISSION ÉCHOUÉE</div>
-      <div class="overlay-subtitle" id="end-subtitle">PERIMÈTRE COMPROMIS</div>
+      <div class="overlay-subtitle" id="end-subtitle">PÉRIMPÈTRE COMPROMIS</div>
 
       <div class="stats-card">
         <div class="stat-row">
-          <span style="color: var(--text-muted);">Score Final :</span>
+          <span style="color: var(--text-muted);" id="end-score-label">Score Final :</span>
           <span id="end-score" style="font-weight: bold; color: var(--accent-green); font-size: 16px;">0</span>
         </div>
         <div class="stat-row">
-          <span style="color: var(--text-muted);">Meilleur Record :</span>
+          <span style="color: var(--text-muted);" id="end-hs-label">Meilleur Record :</span>
           <span id="end-highscore" style="font-weight: bold; color: var(--accent-yellow);">0</span>
         </div>
       </div>
@@ -383,6 +385,12 @@
         gain.gain.setValueAtTime(0.3, now);
         gain.gain.linearRampToValueAtTime(0.01, now + 0.08);
         osc.start(now); osc.stop(now + 0.08);
+      } else if (type === 'geiger') {
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(800 + Math.random() * 400, now);
+        gain.gain.setValueAtTime(0.05, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.02);
+        osc.start(now); osc.stop(now + 0.02);
       } else if (type === 'powerup') {
         osc.frequency.setValueAtTime(400, now);
         osc.frequency.exponentialRampToValueAtTime(1000, now + 0.15);
@@ -406,12 +414,12 @@
       }
     }
 
-    // --- ENGINE GLOBAL & SYSTEME DE JEU ---
+    // --- ENGINE GLOBAL ---
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const wrapper = document.getElementById('canvas-wrapper');
 
-    let currentMode = null; // 'BREAKER' ou 'SNAKE'
+    let currentMode = null; // 'BREAKER', 'SNAKE', 'MINES'
     let score = 0;
     let gameRunning = false;
     let WIDTH = 400;
@@ -423,6 +431,7 @@
       canvas.width = WIDTH;
       canvas.height = HEIGHT;
       if (currentMode === 'BREAKER' && paddle) paddle.y = HEIGHT * 0.88;
+      if (currentMode === 'MINES') calcMinesGrid();
     }
     window.addEventListener('resize', resize);
 
@@ -430,10 +439,7 @@
     let lives = 3;
     let currentLevel = 0;
     let paddle = { x: 0, y: 0, w: 80, h: 12 };
-    let balls = [];
-    let bricks = [];
-    let powerups = [];
-    let particles = [];
+    let balls = [], bricks = [], powerups = [], particles = [];
 
     const LEVEL_DESIGNS = [
       { cols: 9, rows: 8, map: [0,0,1,1,1,1,1,0,0, 0,1,1,3,1,3,1,1,0, 1,1,0,0,1,0,0,1,1, 1,3,0,1,1,1,0,3,1, 1,1,1,1,4,1,1,1,1, 0,1,1,0,1,0,1,1,0, 0,0,1,1,1,1,1,0,0, 0,0,0,1,3,1,0,0,0] },
@@ -446,15 +452,152 @@
 
     // --- VARIABLES SNAKE ---
     const GRID_SIZE = 20;
-    let tileCountX = 20;
-    let tileCountY = 30;
-    let snake = [];
-    let food = { x: 0, y: 0 };
-    let snakeBonus = null;
-    let dx = 1, dy = 0, nextDx = 1, nextDy = 0;
-    let snakeInterval = null;
+    let tileCountX = 20, tileCountY = 30;
+    let snake = [], food = { x: 0, y: 0 }, snakeBonus = null;
+    let dx = 1, dy = 0, nextDx = 1, nextDy = 0, snakeInterval = null;
 
-    // --- CONTROLES UNIFIÉS ---
+    // --- VARIABLES DÉMINEUR ---
+    let mCols = 8, mRows = 12, totalMines = 14;
+    let mCellSize = 30, mOffsetX = 0, mOffsetY = 0;
+    let mineGrid = [];
+    let mineTimer = 0, mineTimerInterval = null;
+    let longTouchTimer = null;
+
+    // --- CONTROLES DÉMINEUR ---
+    function calcMinesGrid() {
+      mCellSize = Math.floor(Math.min((WIDTH - 20) / mCols, (HEIGHT - 20) / mRows));
+      mOffsetX = Math.floor((WIDTH - (mCols * mCellSize)) / 2);
+      mOffsetY = Math.floor((HEIGHT - (mRows * mCellSize)) / 2);
+    }
+
+    function initMines() {
+      calcMinesGrid();
+      mineGrid = [];
+      for (let r = 0; r < mRows; r++) {
+        mineGrid[r] = [];
+        for (let c = 0; c < mCols; c++) {
+          mineGrid[r][c] = { mine: false, revealed: false, flagged: false, count: 0 };
+        }
+      }
+
+      let placed = 0;
+      while (placed < totalMines) {
+        let r = Math.floor(Math.random() * mRows);
+        let c = Math.floor(Math.random() * mCols);
+        if (!mineGrid[r][c].mine) {
+          mineGrid[r][c].mine = true;
+          placed++;
+        }
+      }
+
+      for (let r = 0; r < mRows; r++) {
+        for (let c = 0; c < mCols; c++) {
+          if (!mineGrid[r][c].mine) {
+            let cnt = 0;
+            for (let dr = -1; dr <= 1; dr++) {
+              for (let dc = -1; dc <= 1; dc++) {
+                let nr = r + dr, nc = c + dc;
+                if (nr >= 0 && nr < mRows && nc >= 0 && nc < mCols && mineGrid[nr][nc].mine) cnt++;
+              }
+            }
+            mineGrid[r][c].count = cnt;
+          }
+        }
+      }
+    }
+
+    function revealCell(r, c) {
+      if (r < 0 || r >= mRows || c < 0 || c >= mCols) return;
+      let cell = mineGrid[r][c];
+      if (cell.revealed || cell.flagged) return;
+
+      cell.revealed = true;
+      playSound('geiger');
+
+      if (cell.mine) {
+        playSound('explode');
+        endGame(false);
+        return;
+      }
+
+      if (cell.count === 0) {
+        for (let dr = -1; dr <= 1; dr++) {
+          for (let dc = -1; dc <= 1; dc++) {
+            if (dr !== 0 || dc !== 0) revealCell(r + dr, c + dc);
+          }
+        }
+      }
+
+      checkMinesWin();
+    }
+
+    function toggleFlag(r, c) {
+      if (r < 0 || r >= mRows || c < 0 || c >= mCols) return;
+      let cell = mineGrid[r][c];
+      if (!cell.revealed) {
+        cell.flagged = !cell.flagged;
+        playSound('bounce');
+        let flaggedCount = mineGrid.flat().filter(cell => cell.flagged).length;
+        document.getElementById('score-display').innerText = String(totalMines - flaggedCount).padStart(2, '0');
+      }
+    }
+
+    function checkMinesWin() {
+      let win = true;
+      for (let r = 0; r < mRows; r++) {
+        for (let c = 0; c < mCols; c++) {
+          if (!mineGrid[r][c].mine && !mineGrid[r][c].revealed) win = false;
+        }
+      }
+      if (win) {
+        playSound('powerup');
+        endGame(true);
+      }
+    }
+
+    function getMinesCoords(e) {
+      const rect = canvas.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      const x = clientX - rect.left - mOffsetX;
+      const y = clientY - rect.top - mOffsetY;
+      const c = Math.floor(x / mCellSize);
+      const r = Math.floor(y / mCellSize);
+      return { r, c };
+    }
+
+    canvas.addEventListener('click', (e) => {
+      if (currentMode !== 'MINES' || !gameRunning) return;
+      initAudio();
+      const { r, c } = getMinesCoords(e);
+      revealCell(r, c);
+    });
+
+    canvas.addEventListener('contextmenu', (e) => {
+      if (currentMode !== 'MINES') return;
+      e.preventDefault();
+      if (!gameRunning) return;
+      initAudio();
+      const { r, c } = getMinesCoords(e);
+      toggleFlag(r, c);
+    });
+
+    // Mobile long press pour balise
+    canvas.addEventListener('touchstart', (e) => {
+      if (currentMode !== 'MINES' || !gameRunning) return;
+      const { r, c } = getMinesCoords(e);
+      longTouchTimer = setTimeout(() => {
+        initAudio();
+        toggleFlag(r, c);
+        longTouchTimer = null;
+      }, 400);
+    }, { passive: true });
+
+    canvas.addEventListener('touchend', () => {
+      if (longTouchTimer) clearTimeout(longTouchTimer);
+    }, { passive: true });
+
+    // --- CONTROLES GENERAL ---
     function handleBreakerMove(clientX) {
       if (currentMode !== 'BREAKER') return;
       const rect = canvas.getBoundingClientRect();
@@ -490,26 +633,6 @@
     document.getElementById('btn-down').addEventListener('touchstart', (e) => { e.preventDefault(); changeSnakeDirection(0, 1); });
     document.getElementById('btn-left').addEventListener('touchstart', (e) => { e.preventDefault(); changeSnakeDirection(-1, 0); });
     document.getElementById('btn-right').addEventListener('touchstart', (e) => { e.preventDefault(); changeSnakeDirection(1, 0); });
-
-    let touchStartX = 0, touchStartY = 0;
-    canvas.addEventListener('touchstart', (e) => {
-      touchStartX = e.touches[0].clientX;
-      touchStartY = e.touches[0].clientY;
-    }, { passive: true });
-
-    canvas.addEventListener('touchend', (e) => {
-      if (currentMode !== 'SNAKE') return;
-      initAudio();
-      const diffX = e.changedTouches[0].clientX - touchStartX;
-      const diffY = e.changedTouches[0].clientY - touchStartY;
-      if (Math.abs(diffX) > Math.abs(diffY)) {
-        if (diffX > 20) changeSnakeDirection(1, 0);
-        else if (diffX < -20) changeSnakeDirection(-1, 0);
-      } else {
-        if (diffY > 20) changeSnakeDirection(0, 1);
-        else if (diffY < -20) changeSnakeDirection(0, -1);
-      }
-    }, { passive: true });
 
     document.getElementById('shock-btn').addEventListener('click', () => {
       if (currentMode !== 'BREAKER') return;
@@ -715,6 +838,40 @@
           ctx.fillStyle = index === 0 ? '#ffb703' : '#39ff14';
           ctx.fillRect(segment.x * GRID_SIZE + 1, segment.y * GRID_SIZE + 1, GRID_SIZE - 2, GRID_SIZE - 2);
         });
+      } else if (currentMode === 'MINES') {
+        const colors = ['', '#00b4d8', '#39ff14', '#ff2a6d', '#ffb703', '#fbee0e', '#a06cd5', '#ffffff', '#8a99ad'];
+        for (let r = 0; r < mRows; r++) {
+          for (let c = 0; c < mCols; c++) {
+            let cell = mineGrid[r][c];
+            let x = mOffsetX + c * mCellSize;
+            let y = mOffsetY + r * mCellSize;
+
+            if (cell.revealed) {
+              ctx.fillStyle = cell.mine ? '#ff2a6d' : '#141820';
+              ctx.fillRect(x, y, mCellSize - 2, mCellSize - 2);
+              if (cell.mine) {
+                ctx.fillStyle = '#000';
+                ctx.font = 'bold 14px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('💥', x + mCellSize / 2, y + mCellSize / 2 + 5);
+              } else if (cell.count > 0) {
+                ctx.fillStyle = colors[cell.count] || '#fff';
+                ctx.font = 'bold 14px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(cell.count, x + mCellSize / 2, y + mCellSize / 2 + 5);
+              }
+            } else {
+              ctx.fillStyle = '#1e2634';
+              ctx.fillRect(x, y, mCellSize - 2, mCellSize - 2);
+              if (cell.flagged) {
+                ctx.fillStyle = '#ffb703';
+                ctx.font = 'bold 12px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('⚠️', x + mCellSize / 2, y + mCellSize / 2 + 4);
+              }
+            }
+          }
+        }
       }
     }
 
@@ -734,9 +891,10 @@
       }
     }
 
-    // --- STRATÉGIE DE DÉMARRAGE ET NAVIGATION ---
+    // --- NAVIGATION ---
     function startBreaker() {
       currentMode = 'BREAKER';
+      document.getElementById('score-label').innerText = 'SCORE';
       document.getElementById('mode-label').innerText = 'NIVEAU';
       document.getElementById('stat-label').innerText = 'VIES';
       document.getElementById('hud-right').style.display = 'flex';
@@ -754,6 +912,7 @@
 
     function startSnake() {
       currentMode = 'SNAKE';
+      document.getElementById('score-label').innerText = 'SCORE';
       document.getElementById('mode-label').innerText = 'UNITÉ';
       document.getElementById('mode-display').innerText = 'SERPENT-7';
       document.getElementById('hud-right').style.display = 'none';
@@ -775,41 +934,108 @@
       snakeInterval = setInterval(() => { if (gameRunning && currentMode === 'SNAKE') updateSnake(); }, 100);
     }
 
+    function startMines() {
+      currentMode = 'MINES';
+      document.getElementById('score-label').innerText = 'MINES';
+      document.getElementById('mode-label').innerText = 'SECTEUR';
+      document.getElementById('mode-display').innerText = 'CLEAN';
+      document.getElementById('stat-label').innerText = 'TEMPS';
+      document.getElementById('hud-right').style.display = 'none';
+      document.getElementById('breaker-controls').classList.add('hidden');
+      document.getElementById('snake-dpad').classList.add('hidden');
+
+      gameRunning = true;
+      mineTimer = 0;
+      document.getElementById('score-display').innerText = String(totalMines).padStart(2, '0');
+      initMines();
+      resize();
+
+      document.getElementById('main-menu').classList.add('hidden');
+      document.getElementById('end-screen').classList.add('hidden');
+
+      if (mineTimerInterval) clearInterval(mineTimerInterval);
+      mineTimerInterval = setInterval(() => { if (gameRunning && currentMode === 'MINES') mineTimer++; }, 1000);
+    }
+
     function endGame(victory) {
       gameRunning = false;
       if (snakeInterval) clearInterval(snakeInterval);
-      playSound('lose');
+      if (mineTimerInterval) clearInterval(mineTimerInterval);
 
-      const hsKey = currentMode === 'BREAKER' ? 'bunker_breaker_hs' : 'bunker_snake_hs';
-      let highscore = localStorage.getItem(hsKey) || 0;
-      if (score > highscore) {
-        highscore = score;
-        localStorage.setItem(hsKey, highscore);
+      let hsKey = 'bunker_breaker_hs';
+      let currentVal = score;
+
+      if (currentMode === 'SNAKE') hsKey = 'bunker_snake_hs';
+      if (currentMode === 'MINES') {
+        hsKey = 'bunker_mines_hs';
+        currentVal = mineTimer;
+        // Révéler toutes les mines
+        mineGrid.forEach(row => row.forEach(cell => { if (cell.mine) cell.revealed = true; }));
+      } else {
+        playSound('lose');
       }
 
-      document.getElementById('end-title').innerText = victory ? 'MISSION RÉUSSIE !' : 'MISSION ÉCHOUÉE';
-      document.getElementById('end-subtitle').innerText = victory ? 'OBJECTIFS DU BUNKER ATTEINTS' : 'L\'AGENT A ÉTÉ NEUTRALISÉ';
-      document.getElementById('end-score').innerText = score;
-      document.getElementById('end-highscore').innerText = highscore;
+      let highscore = localStorage.getItem(hsKey) || 0;
+      if (currentMode === 'MINES') {
+        if (victory && (highscore === 0 || mineTimer < highscore)) {
+          highscore = mineTimer;
+          localStorage.setItem(hsKey, highscore);
+        }
+      } else {
+        if (score > highscore) {
+          highscore = score;
+          localStorage.setItem(hsKey, highscore);
+        }
+      }
+
+      document.getElementById('end-title').innerText = victory ? 'ZONE SÉCURISÉE !' : 'MISSION ÉCHOUÉE';
+      document.getElementById('end-subtitle').innerText = victory ? 'SECTEUR NETTOYÉ AVEC SUCCÈS' : 'DÉTONATION DETECTÉE DANS LE COMPLEXE';
+      
+      if (currentMode === 'MINES') {
+        document.getElementById('end-score-label').innerText = 'Temps :';
+        document.getElementById('end-hs-label').innerText = 'Meilleur Temps :';
+        document.getElementById('end-score').innerText = `${mineTimer}s`;
+        document.getElementById('end-highscore').innerText = highscore ? `${highscore}s` : 'N/A';
+      } else {
+        document.getElementById('end-score-label').innerText = 'Score Final :';
+        document.getElementById('end-hs-label').innerText = 'Record :';
+        document.getElementById('end-score').innerText = score;
+        document.getElementById('end-highscore').innerText = highscore;
+      }
+
       document.getElementById('end-screen').classList.remove('hidden');
     }
 
     document.getElementById('select-breaker-btn').addEventListener('click', () => { initAudio(); startBreaker(); });
     document.getElementById('select-snake-btn').addEventListener('click', () => { initAudio(); startSnake(); });
-    document.getElementById('restart-btn').addEventListener('click', () => { initAudio(); if (currentMode === 'BREAKER') startBreaker(); else startSnake(); });
+    document.getElementById('select-mines-btn').addEventListener('click', () => { initAudio(); startMines(); });
+
+    document.getElementById('restart-btn').addEventListener('click', () => {
+      initAudio();
+      if (currentMode === 'BREAKER') startBreaker();
+      else if (currentMode === 'SNAKE') startSnake();
+      else startMines();
+    });
+
     document.getElementById('menu-btn').addEventListener('click', () => {
       gameRunning = false;
       if (snakeInterval) clearInterval(snakeInterval);
+      if (mineTimerInterval) clearInterval(mineTimerInterval);
       document.getElementById('mode-display').innerText = 'MENU';
       document.getElementById('end-screen').classList.add('hidden');
       document.getElementById('main-menu').classList.remove('hidden');
     });
 
     document.getElementById('share-btn').addEventListener('click', () => {
-      const hsKey = currentMode === 'BREAKER' ? 'bunker_breaker_hs' : 'bunker_snake_hs';
-      const highscore = localStorage.getItem(hsKey) || 0;
-      const gameTitle = currentMode === 'BREAKER' ? 'BUNKER BREAKER' : 'SERPENT-7';
-      const text = `☣️ **${gameTitle}** ☣️\n🎮 Score : **${score}** pts\n🏆 Meilleur Score : **${highscore}** pts\n🕹️ *Viens battre mon record sur le serveur !*`;
+      let gameTitle = 'BUNKER BREAKER';
+      let valStr = `Score : **${score}** pts`;
+      if (currentMode === 'SNAKE') gameTitle = 'SERPENT-7';
+      if (currentMode === 'MINES') {
+        gameTitle = 'DÉMINAGE SECTEUR';
+        valStr = `Temps d'intervention : **${mineTimer}s**`;
+      }
+
+      const text = `☣️ **${gameTitle}** ☣️\n🎮 ${valStr}\n🕹️ *Viens tenter ta chance sur le terminal du bunker !*`;
       navigator.clipboard.writeText(text).then(() => {
         const toast = document.getElementById('toast');
         toast.style.opacity = '1';
