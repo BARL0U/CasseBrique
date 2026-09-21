@@ -222,6 +222,7 @@
     .btn-primary { background: var(--accent-green); color: #080a0e; }
     .btn-secondary { background: #1e2634; color: var(--accent-orange); border: 1px solid var(--accent-orange); }
     .btn-mines { background: #1e2634; color: var(--accent-red); border: 1px solid var(--accent-red); }
+    .btn-solitaire { background: #1e2634; color: var(--accent-blue); border: 1px solid var(--accent-blue); }
     .btn-discord { background: #5865F2; color: #ffffff; }
 
     #toast {
@@ -283,6 +284,7 @@
       <div class="overlay-subtitle">SÉLECTIONNEZ UNE SIMULATION</div>
       <button class="btn btn-primary" id="select-breaker-btn">🧱 CASSE-BRIQUES (BREAKER)</button>
       <button class="btn btn-mines" id="select-mines-btn">☢️ DÉMINAGE SECTEUR</button>
+      <button class="btn btn-solitaire" id="select-solitaire-btn">♠️ SOLITAIRE KLONDIKE</button>
     </div>
 
     <!-- ECRAN GAMEOVER / VICTOIRE -->
@@ -370,7 +372,7 @@
     const ctx = canvas.getContext('2d');
     const wrapper = document.getElementById('canvas-wrapper');
 
-    let currentMode = null; // 'BREAKER', 'MINES'
+    let currentMode = null; // 'BREAKER', 'MINES', 'SOLITAIRE'
     let score = 0;
     let gameRunning = false;
     let WIDTH = 400;
@@ -383,6 +385,7 @@
       canvas.height = HEIGHT;
       if (currentMode === 'BREAKER' && paddle) paddle.y = HEIGHT * 0.88;
       if (currentMode === 'MINES') calcMinesGrid();
+      if (currentMode === 'SOLITAIRE') calcSolitaireDimensions();
     }
     window.addEventListener('resize', resize);
 
@@ -407,6 +410,368 @@
     let mineGrid = [];
     let mineTimer = 0, mineTimerInterval = null;
     let longTouchTimer = null;
+
+    // --- VARIABLES SOLITAIRE ---
+    let cardW = 45, cardH = 65;
+    let solDeck = [], solWaste = [], solFoundations = [[], [], [], []], solTableau = [[], [], [], [], [], [], []];
+    let draggedCards = null, dragSource = null, dragOffsetX = 0, dragOffsetY = 0, dragX = 0, dragY = 0;
+
+    const SOL_SUITS = ['♠', '♥', '♦', '♣'];
+    const SOL_RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+
+    function calcSolitaireDimensions() {
+      cardW = Math.floor((WIDTH - 32) / 7);
+      cardH = Math.floor(cardW * 1.4);
+    }
+
+    function initSolitaire() {
+      calcSolitaireDimensions();
+      solDeck = []; solWaste = [];
+      solFoundations = [[], [], [], []];
+      solTableau = [[], [], [], [], [], [], []];
+
+      let rawDeck = [];
+      for (let s = 0; s < 4; s++) {
+        for (let r = 1; r <= 13; r++) {
+          rawDeck.push({
+            suit: SOL_SUITS[s],
+            color: (s === 1 || s === 2) ? 'red' : 'black',
+            value: r,
+            rankStr: SOL_RANKS[r - 1],
+            faceUp: false
+          });
+        }
+      }
+
+      // Mélange
+      for (let i = rawDeck.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [rawDeck[i], rawDeck[j]] = [rawDeck[j], rawDeck[i]];
+      }
+
+      // Remplissage Tableau
+      for (let i = 0; i < 7; i++) {
+        for (let j = 0; j <= i; j++) {
+          let card = rawDeck.pop();
+          if (j === i) card.faceUp = true;
+          solTableau[i].push(card);
+        }
+      }
+
+      solDeck = rawDeck;
+      score = 0;
+      document.getElementById('score-display').innerText = '0000';
+    }
+
+    function drawCardSolitaire(card, x, y) {
+      ctx.fillStyle = card.faceUp ? '#ffffff' : '#1a2332';
+      ctx.fillRect(x, y, cardW, cardH);
+      ctx.strokeStyle = card.faceUp ? '#8a99ad' : '#39ff14';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x, y, cardW, cardH);
+
+      if (card.faceUp) {
+        ctx.fillStyle = card.color === 'red' ? '#ff2a6d' : '#000000';
+        ctx.font = `bold ${Math.floor(cardW * 0.35)}px sans-serif`;
+        ctx.textAlign = 'left';
+        ctx.fillText(card.rankStr, x + 3, y + cardH * 0.3);
+        ctx.textAlign = 'right';
+        ctx.fillText(card.suit, x + cardW - 3, y + cardH * 0.3);
+
+        ctx.font = `${Math.floor(cardW * 0.45)}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.fillText(card.suit, x + cardW / 2, y + cardH * 0.75);
+      } else {
+        ctx.fillStyle = 'rgba(57, 255, 20, 0.2)';
+        ctx.fillRect(x + 3, y + 3, cardW - 6, cardH - 6);
+      }
+    }
+
+    function drawSolitaire() {
+      const margin = 4;
+      const topY = 10;
+
+      // Pioche & Défausse
+      if (solDeck.length > 0) {
+        drawCardSolitaire({ faceUp: false }, margin, topY);
+      } else {
+        ctx.strokeStyle = '#222c3c';
+        ctx.strokeRect(margin, topY, cardW, cardH);
+      }
+
+      if (solWaste.length > 0) {
+        drawCardSolitaire(solWaste[solWaste.length - 1], margin + cardW + margin, topY);
+      }
+
+      // Fondations (Top Right)
+      for (let i = 0; i < 4; i++) {
+        let fx = margin + (i + 3) * (cardW + margin);
+        ctx.strokeStyle = '#222c3c';
+        ctx.strokeRect(fx, topY, cardW, cardH);
+        if (solFoundations[i].length > 0) {
+          drawCardSolitaire(solFoundations[i][solFoundations[i].length - 1], fx, topY);
+        } else {
+          ctx.fillStyle = '#222c3c';
+          ctx.font = '12px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(SOL_SUITS[i], fx + cardW / 2, topY + cardH / 2 + 4);
+        }
+      }
+
+      // Tableau (Bottom 7 columns)
+      const tabY = topY + cardH + 15;
+      const overlap = Math.floor(cardH * 0.28);
+
+      for (let i = 0; i < 7; i++) {
+        let tx = margin + i * (cardW + margin);
+        ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+        ctx.strokeRect(tx, tabY, cardW, cardH);
+
+        for (let j = 0; j < solTableau[i].length; j++) {
+          let card = solTableau[i][j];
+          if (draggedCards && dragSource.type === 'tableau' && dragSource.col === i && j >= dragSource.index) {
+            continue; // En cours de glissement
+          }
+          drawCardSolitaire(card, tx, tabY + j * overlap);
+        }
+      }
+
+      // Render Dragged Cards
+      if (draggedCards) {
+        for (let i = 0; i < draggedCards.length; i++) {
+          drawCardSolitaire(draggedCards[i], dragX - dragOffsetX, dragY - dragOffsetY + i * overlap);
+        }
+      }
+    }
+
+    function tryAutoMoveSolitaire(card, source) {
+      // 1. Essayer vers Fondation
+      for (let f = 0; f < 4; f++) {
+        let foundation = solFoundations[f];
+        let topF = foundation.length > 0 ? foundation[foundation.length - 1] : null;
+
+        if ((!topF && card.value === 1 && card.suit === SOL_SUITS[f]) ||
+            (topF && topF.suit === card.suit && topF.value === card.value - 1)) {
+          foundation.push(card);
+          removeCardFromSource(source);
+          score += 10;
+          playSound('powerup');
+          checkSolitaireWin();
+          return true;
+        }
+      }
+
+      // 2. Essayer vers Tableau
+      for (let t = 0; t < 7; t++) {
+        if (source.type === 'tableau' && source.col === t) continue;
+        let pile = solTableau[t];
+        let topT = pile.length > 0 ? pile[pile.length - 1] : null;
+
+        if ((!topT && card.value === 13) ||
+            (topT && topT.faceUp && topT.color !== card.color && topT.value === card.value + 1)) {
+          
+          if (source.type === 'tableau') {
+            let moving = solTableau[source.col].splice(source.index);
+            solTableau[t].push(...moving);
+          } else {
+            solTableau[t].push(card);
+            removeCardFromSource(source);
+          }
+          playSound('bounce');
+          return true;
+        }
+      }
+
+      return false;
+    }
+
+    function removeCardFromSource(source) {
+      if (source.type === 'waste') solWaste.pop();
+      else if (source.type === 'tableau') {
+        solTableau[source.col].pop();
+        if (solTableau[source.col].length > 0) {
+          solTableau[source.col][solTableau[source.col].length - 1].faceUp = true;
+        }
+      }
+    }
+
+    function checkSolitaireWin() {
+      let winCount = solFoundations.reduce((acc, f) => acc + f.length, 0);
+      document.getElementById('score-display').innerText = String(score).padStart(4, '0');
+      if (winCount === 52) {
+        endGame(true);
+      }
+    }
+
+    // --- EVENEMENTS SOLITAIRE (TACTILE & SOURIS) ---
+    function handleSolitaireDown(e) {
+      if (currentMode !== 'SOLITAIRE' || !gameRunning) return;
+      initAudio();
+
+      const rect = canvas.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      const x = clientX - rect.left;
+      const y = clientY - rect.top;
+
+      const margin = 4, topY = 10, overlap = Math.floor(cardH * 0.28);
+
+      // Clic Pioche
+      if (x >= margin && x <= margin + cardW && y >= topY && y <= topY + cardH) {
+        if (solDeck.length > 0) {
+          let card = solDeck.pop();
+          card.faceUp = true;
+          solWaste.push(card);
+          playSound('brick');
+        } else {
+          while (solWaste.length > 0) {
+            let card = solWaste.pop();
+            card.faceUp = false;
+            solDeck.push(card);
+          }
+          playSound('bounce');
+        }
+        return;
+      }
+
+      // Clic Défausse
+      if (x >= margin + cardW + margin && x <= margin + cardW * 2 + margin && y >= topY && y <= topY + cardH) {
+        if (solWaste.length > 0) {
+          let card = solWaste[solWaste.length - 1];
+          if (!tryAutoMoveSolitaire(card, { type: 'waste' })) {
+            draggedCards = [card];
+            dragSource = { type: 'waste' };
+            dragOffsetX = x - (margin + cardW + margin);
+            dragOffsetY = y - topY;
+            dragX = x; dragY = y;
+          }
+        }
+        return;
+      }
+
+      // Clic Tableau
+      const tabY = topY + cardH + 15;
+      for (let i = 0; i < 7; i++) {
+        let tx = margin + i * (cardW + margin);
+        let pile = solTableau[i];
+
+        if (x >= tx && x <= tx + cardW) {
+          if (pile.length === 0 && y >= tabY && y <= tabY + cardH) {
+            return;
+          }
+
+          for (let j = pile.length - 1; j >= 0; j--) {
+            let cardY = tabY + j * overlap;
+            let h = (j === pile.length - 1) ? cardH : overlap;
+
+            if (y >= cardY && y <= cardY + h) {
+              let card = pile[j];
+              if (!card.faceUp && j === pile.length - 1) {
+                card.faceUp = true;
+                playSound('brick');
+                return;
+              }
+
+              if (card.faceUp) {
+                // Sur mobile/clic simple, tente le mouvement auto rapide
+                if (j === pile.length - 1 && tryAutoMoveSolitaire(card, { type: 'tableau', col: i, index: j })) {
+                  return;
+                }
+
+                // Sinon active Drag and Drop
+                draggedCards = pile.slice(j);
+                dragSource = { type: 'tableau', col: i, index: j };
+                dragOffsetX = x - tx;
+                dragOffsetY = y - cardY;
+                dragX = x; dragY = y;
+                return;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    function handleSolitaireMove(e) {
+      if (currentMode !== 'SOLITAIRE' || !draggedCards) return;
+      const rect = canvas.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      dragX = clientX - rect.left;
+      dragY = clientY - rect.top;
+    }
+
+    function handleSolitaireUp() {
+      if (currentMode !== 'SOLITAIRE' || !draggedCards) return;
+
+      const margin = 4, topY = 10;
+      let dropX = dragX - dragOffsetX + cardW / 2;
+      let dropY = dragY - dragOffsetY + cardH / 2;
+      let moved = false;
+
+      // Drop vers Fondations
+      if (draggedCards.length === 1 && dropY >= topY && dropY <= topY + cardH) {
+        for (let f = 0; f < 4; f++) {
+          let fx = margin + (f + 3) * (cardW + margin);
+          if (dropX >= fx && dropX <= fx + cardW) {
+            let card = draggedCards[0];
+            let foundation = solFoundations[f];
+            let topF = foundation.length > 0 ? foundation[foundation.length - 1] : null;
+
+            if ((!topF && card.value === 1 && card.suit === SOL_SUITS[f]) ||
+                (topF && topF.suit === card.suit && topF.value === card.value - 1)) {
+              foundation.push(card);
+              removeCardFromSource(dragSource);
+              score += 10;
+              playSound('powerup');
+              checkSolitaireWin();
+              moved = true;
+              break;
+            }
+          }
+        }
+      }
+
+      // Drop vers Tableau
+      if (!moved) {
+        for (let t = 0; t < 7; t++) {
+          let tx = margin + t * (cardW + margin);
+          if (dropX >= tx && dropX <= tx + cardW) {
+            let pile = solTableau[t];
+            let topT = pile.length > 0 ? pile[pile.length - 1] : null;
+            let card = draggedCards[0];
+
+            if ((!topT && card.value === 13) ||
+                (topT && topT.faceUp && topT.color !== card.color && topT.value === card.value + 1)) {
+              
+              if (dragSource.type === 'tableau') {
+                solTableau[t].push(...solTableau[dragSource.col].splice(dragSource.index));
+                if (solTableau[dragSource.col].length > 0) {
+                  solTableau[dragSource.col][solTableau[dragSource.col].length - 1].faceUp = true;
+                }
+              } else {
+                solTableau[t].push(card);
+                removeCardFromSource(dragSource);
+              }
+              playSound('bounce');
+              moved = true;
+              break;
+            }
+          }
+        }
+      }
+
+      draggedCards = null;
+      dragSource = null;
+    }
+
+    canvas.addEventListener('mousedown', handleSolitaireDown);
+    canvas.addEventListener('mousemove', handleSolitaireMove);
+    canvas.addEventListener('mouseup', handleSolitaireUp);
+
+    canvas.addEventListener('touchstart', (e) => handleSolitaireDown(e), { passive: true });
+    canvas.addEventListener('touchmove', (e) => handleSolitaireMove(e), { passive: true });
+    canvas.addEventListener('touchend', handleSolitaireUp);
 
     // --- CONTROLES DÉMINEUR ---
     function calcMinesGrid() {
@@ -526,20 +891,6 @@
       const { r, c } = getMinesCoords(e);
       toggleFlag(r, c);
     });
-
-    canvas.addEventListener('touchstart', (e) => {
-      if (currentMode !== 'MINES' || !gameRunning) return;
-      const { r, c } = getMinesCoords(e);
-      longTouchTimer = setTimeout(() => {
-        initAudio();
-        toggleFlag(r, c);
-        longTouchTimer = null;
-      }, 400);
-    }, { passive: true });
-
-    canvas.addEventListener('touchend', () => {
-      if (longTouchTimer) clearTimeout(longTouchTimer);
-    }, { passive: true });
 
     // --- CONTROLES GENERAL ---
     function handleBreakerMove(clientX) {
@@ -703,11 +1054,10 @@
     function draw() {
       ctx.clearRect(0, 0, WIDTH, HEIGHT);
 
-      // Grille
-      ctx.strokeStyle = '#141a24';
-      for (let x = 0; x < WIDTH; x += 30) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, HEIGHT); ctx.stroke(); }
-
       if (currentMode === 'BREAKER') {
+        ctx.strokeStyle = '#141a24';
+        for (let x = 0; x < WIDTH; x += 30) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, HEIGHT); ctx.stroke(); }
+
         bricks.forEach(br => {
           ctx.fillStyle = br.type === 1 ? '#39ff14' : (br.type === 2 ? '#ffb703' : (br.type === 3 ? '#ff2a6d' : '#4a5568'));
           ctx.fillRect(br.x, br.y, br.w, br.h);
@@ -761,6 +1111,8 @@
             }
           }
         }
+      } else if (currentMode === 'SOLITAIRE') {
+        drawSolitaire();
       }
     }
 
@@ -820,6 +1172,22 @@
       mineTimerInterval = setInterval(() => { if (gameRunning && currentMode === 'MINES') mineTimer++; }, 1000);
     }
 
+    function startSolitaire() {
+      currentMode = 'SOLITAIRE';
+      document.getElementById('score-label').innerText = 'SCORE';
+      document.getElementById('mode-label').innerText = 'TABLE';
+      document.getElementById('mode-display').innerText = 'SOLITAIRE';
+      document.getElementById('hud-right').style.display = 'none';
+      document.getElementById('breaker-controls').classList.add('hidden');
+
+      gameRunning = true;
+      initSolitaire();
+      resize();
+
+      document.getElementById('main-menu').classList.add('hidden');
+      document.getElementById('end-screen').classList.add('hidden');
+    }
+
     function endGame(victory) {
       gameRunning = false;
       if (mineTimerInterval) clearInterval(mineTimerInterval);
@@ -831,6 +1199,8 @@
         hsKey = 'bunker_mines_hs';
         currentVal = mineTimer;
         mineGrid.forEach(row => row.forEach(cell => { if (cell.mine) cell.revealed = true; }));
+      } else if (currentMode === 'SOLITAIRE') {
+        hsKey = 'bunker_solitaire_hs';
       } else {
         playSound('lose');
       }
@@ -868,11 +1238,13 @@
 
     document.getElementById('select-breaker-btn').addEventListener('click', () => { initAudio(); startBreaker(); });
     document.getElementById('select-mines-btn').addEventListener('click', () => { initAudio(); startMines(); });
+    document.getElementById('select-solitaire-btn').addEventListener('click', () => { initAudio(); startSolitaire(); });
 
     document.getElementById('restart-btn').addEventListener('click', () => {
       initAudio();
       if (currentMode === 'BREAKER') startBreaker();
-      else startMines();
+      else if (currentMode === 'MINES') startMines();
+      else startSolitaire();
     });
 
     document.getElementById('menu-btn').addEventListener('click', () => {
@@ -889,6 +1261,9 @@
       if (currentMode === 'MINES') {
         gameTitle = 'DÉMINAGE SECTEUR';
         valStr = `Temps d'intervention : **${mineTimer}s**`;
+      } else if (currentMode === 'SOLITAIRE') {
+        gameTitle = 'SOLITAIRE KLONDIKE';
+        valStr = `Score : **${score}** pts`;
       }
 
       const text = `☣️ **${gameTitle}** ☣️\n🎮 ${valStr}\n🕹️ *Viens tenter ta chance sur le terminal du bunker !*`;
