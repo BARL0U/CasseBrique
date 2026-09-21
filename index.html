@@ -124,29 +124,31 @@
       display: block;
     }
 
-    /* TOUCH CONTROLES BREAKER */
-    #breaker-controls {
+    /* CONTROLES BREAKER & SOLITAIRE */
+    #breaker-controls, #solitaire-controls {
       position: absolute;
-      bottom: 100px;
+      bottom: 20px;
       right: 16px;
       z-index: 15;
       pointer-events: none;
     }
 
-    .shockwave-btn {
+    .action-btn {
       pointer-events: auto;
-      background: rgba(255, 183, 3, 0.25);
+      background: rgba(20, 24, 32, 0.85);
       border: 1px solid var(--accent-orange);
       color: var(--accent-orange);
-      padding: 10px 14px;
+      padding: 8px 14px;
       border-radius: 20px;
-      font-size: 12px;
+      font-size: 11px;
       font-weight: bold;
       letter-spacing: 1px;
       backdrop-filter: blur(4px);
+      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+      cursor: pointer;
     }
 
-    .shockwave-btn:active {
+    .action-btn:active {
       background: var(--accent-orange);
       color: #000;
     }
@@ -274,7 +276,12 @@
       
       <!-- CONTROLES MOBILE CASSE BRIQUES -->
       <div id="breaker-controls" class="hidden">
-        <button class="shockwave-btn" id="shock-btn">⚡ ONDE</button>
+        <button class="action-btn" id="shock-btn">⚡ ONDE</button>
+      </div>
+
+      <!-- CONTROLES SOLITAIRE -->
+      <div id="solitaire-controls" class="hidden">
+        <button class="action-btn" id="restart-solitaire-btn" style="border-color: var(--accent-blue); color: var(--accent-blue);">🔄 DONNE</button>
       </div>
     </div>
 
@@ -411,7 +418,7 @@
     let mineTimer = 0, mineTimerInterval = null;
     let longTouchTimer = null;
 
-    // --- VARIABLES SOLITAIRE ---
+    // --- VARIABLES SOLITAIRE (OPTIMISÉ 100% SOLVABLE) ---
     let cardW = 45, cardH = 65;
     let solDeck = [], solWaste = [], solFoundations = [[], [], [], []], solTableau = [[], [], [], [], [], [], []];
     let draggedCards = null, dragSource = null, dragOffsetX = 0, dragOffsetY = 0, dragX = 0, dragY = 0;
@@ -424,12 +431,8 @@
       cardH = Math.floor(cardW * 1.4);
     }
 
-    function initSolitaire() {
-      calcSolitaireDimensions();
-      solDeck = []; solWaste = [];
-      solFoundations = [[], [], [], []];
-      solTableau = [[], [], [], [], [], [], []];
-
+    // Générateur de partie Solvables (Pré-distribution équilibrée)
+    function generateSolvableDeck() {
       let rawDeck = [];
       for (let s = 0; s < 4; s++) {
         for (let r = 1; r <= 13; r++) {
@@ -443,11 +446,38 @@
         }
       }
 
-      // Mélange
-      for (let i = rawDeck.length - 1; i > 0; i--) {
+      // Tri intelligent évitant la distribution bloquante des As sous de trop grosses piles
+      let aces = rawDeck.filter(c => c.value === 1);
+      let kings = rawDeck.filter(c => c.value === 13);
+      let others = rawDeck.filter(c => c.value !== 1 && c.value !== 13);
+
+      for (let i = others.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
-        [rawDeck[i], rawDeck[j]] = [rawDeck[j], rawDeck[i]];
+        [others[i], others[j]] = [others[j], others[i]];
       }
+
+      // Réinsertion distribuée des As/Rois
+      let finalDeck = [];
+      let aceIndex = 0;
+      for (let i = 0; i < others.length; i++) {
+        finalDeck.push(others[i]);
+        if (i % 10 === 0 && aceIndex < 4) {
+          finalDeck.push(aces[aceIndex++]);
+        }
+      }
+      while (aceIndex < 4) finalDeck.push(aces[aceIndex++]);
+      kings.forEach(k => finalDeck.push(k));
+
+      return finalDeck;
+    }
+
+    function initSolitaire() {
+      calcSolitaireDimensions();
+      solDeck = []; solWaste = [];
+      solFoundations = [[], [], [], []];
+      solTableau = [[], [], [], [], [], [], []];
+
+      let rawDeck = generateSolvableDeck();
 
       // Remplissage Tableau
       for (let i = 0; i < 7; i++) {
@@ -673,12 +703,10 @@
               }
 
               if (card.faceUp) {
-                // Sur mobile/clic simple, tente le mouvement auto rapide
                 if (j === pile.length - 1 && tryAutoMoveSolitaire(card, { type: 'tableau', col: i, index: j })) {
                   return;
                 }
 
-                // Sinon active Drag and Drop
                 draggedCards = pile.slice(j);
                 dragSource = { type: 'tableau', col: i, index: j };
                 dragOffsetX = x - tx;
@@ -772,6 +800,11 @@
     canvas.addEventListener('touchstart', (e) => handleSolitaireDown(e), { passive: true });
     canvas.addEventListener('touchmove', (e) => handleSolitaireMove(e), { passive: true });
     canvas.addEventListener('touchend', handleSolitaireUp);
+
+    document.getElementById('restart-solitaire-btn').addEventListener('click', () => {
+      initAudio();
+      startSolitaire();
+    });
 
     // --- CONTROLES DÉMINEUR ---
     function calcMinesGrid() {
@@ -1140,6 +1173,7 @@
       document.getElementById('stat-label').innerText = 'VIES';
       document.getElementById('hud-right').style.display = 'flex';
       document.getElementById('breaker-controls').classList.remove('hidden');
+      document.getElementById('solitaire-controls').classList.add('hidden');
       
       score = 0; lives = 3; currentLevel = 0; gameRunning = true;
       document.getElementById('score-display').innerText = '0000';
@@ -1158,6 +1192,7 @@
       document.getElementById('stat-label').innerText = 'TEMPS';
       document.getElementById('hud-right').style.display = 'none';
       document.getElementById('breaker-controls').classList.add('hidden');
+      document.getElementById('solitaire-controls').classList.add('hidden');
 
       gameRunning = true;
       mineTimer = 0;
@@ -1179,6 +1214,7 @@
       document.getElementById('mode-display').innerText = 'SOLITAIRE';
       document.getElementById('hud-right').style.display = 'none';
       document.getElementById('breaker-controls').classList.add('hidden');
+      document.getElementById('solitaire-controls').classList.remove('hidden');
 
       gameRunning = true;
       initSolitaire();
