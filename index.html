@@ -223,6 +223,7 @@
     .btn-primary { background: var(--accent-green); color: #080a0e; }
     .btn-secondary { background: #1e2634; color: var(--accent-orange); border: 1px solid var(--accent-orange); }
     .btn-mines { background: #1e2634; color: var(--accent-red); border: 1px solid var(--accent-red); }
+    .btn-tictactoe { background: #1e2634; color: var(--accent-blue); border: 1px solid var(--accent-blue); }
     .btn-discord { background: #5865F2; color: #ffffff; }
 
     #toast {
@@ -284,6 +285,7 @@
       <div class="overlay-subtitle">SÉLECTIONNEZ UNE SIMULATION</div>
       <button class="btn btn-primary" id="select-breaker-btn">🧱 CASSE-BRIQUES (BREAKER)</button>
       <button class="btn btn-mines" id="select-mines-btn">☢️ DÉMINAGE SECTEUR</button>
+      <button class="btn btn-tictactoe" id="select-tictactoe-btn">❌ MORPION DU BUNKER (TACTIC)</button>
     </div>
 
     <!-- ECRAN GAMEOVER / VICTOIRE -->
@@ -371,7 +373,7 @@
     const ctx = canvas.getContext('2d');
     const wrapper = document.getElementById('canvas-wrapper');
 
-    let currentMode = null; // 'BREAKER', 'MINES'
+    let currentMode = null; // 'BREAKER', 'MINES', 'TICTACTOE'
     let score = 0;
     let gameRunning = false;
     let WIDTH = 400;
@@ -384,6 +386,7 @@
       canvas.height = HEIGHT;
       if (currentMode === 'BREAKER' && paddle) paddle.y = HEIGHT * 0.88;
       if (currentMode === 'MINES') calcMinesGrid();
+      if (currentMode === 'TICTACTOE') calcTicTacToeGrid();
     }
     window.addEventListener('resize', resize);
 
@@ -408,6 +411,122 @@
     let mineGrid = [];
     let mineTimer = 0, mineTimerInterval = null;
     let longTouchTimer = null;
+
+    // --- VARIABLES MORPION (TICTACTOE) ---
+    let tBoard = ['', '', '', '', '', '', '', '', ''];
+    let tTurn = 'X'; // 'X' (Joueur) ou 'O' (IA)
+    let tCellSize = 90;
+    let tOffsetX = 0, tOffsetY = 0;
+    let tWins = 0;
+
+    // --- LOGIQUE MORPION ---
+    function calcTicTacToeGrid() {
+      const boardAreaSize = Math.min(WIDTH - 40, HEIGHT - 120);
+      tCellSize = Math.floor(boardAreaSize / 3);
+      tOffsetX = Math.floor((WIDTH - (tCellSize * 3)) / 2);
+      tOffsetY = Math.floor((HEIGHT - (tCellSize * 3)) / 2);
+    }
+
+    function initTicTacToe() {
+      calcTicTacToeGrid();
+      tBoard = ['', '', '', '', '', '', '', '', ''];
+      tTurn = 'X';
+      gameRunning = true;
+      document.getElementById('score-display').innerText = String(tWins).padStart(4, '0');
+    }
+
+    function checkTicTacToeWinner(board) {
+      const winCombos = [
+        [0,1,2], [3,4,5], [6,7,8], // Lignes
+        [0,3,6], [1,4,7], [2,5,8], // Colonnes
+        [0,4,8], [2,4,6]          // Diagonales
+      ];
+      for (let combo of winCombos) {
+        const [a, b, c] = combo;
+        if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+          return board[a];
+        }
+      }
+      if (!board.includes('')) return 'tie';
+      return null;
+    }
+
+    function aiMove() {
+      if (!gameRunning || tTurn !== 'O') return;
+      
+      // Recherche d'un coup gagnant ou de blocage (IA simple)
+      let move = -1;
+      // 1. Essayer de gagner
+      for (let i = 0; i < 9; i++) {
+        if (tBoard[i] === '') {
+          tBoard[i] = 'O';
+          if (checkTicTacToeWinner(tBoard) === 'O') { move = i; tBoard[i] = ''; break; }
+          tBoard[i] = '';
+        }
+      }
+      // 2. Bloquer le joueur
+      if (move === -1) {
+        for (let i = 0; i < 9; i++) {
+          if (tBoard[i] === '') {
+            tBoard[i] = 'X';
+            if (checkTicTacToeWinner(tBoard) === 'X') { move = i; tBoard[i] = ''; break; }
+            tBoard[i] = '';
+          }
+        }
+      }
+      // 3. Coup aléatoire intelligent si disponible
+      if (move === -1) {
+        let emptyCells = [];
+        tBoard.forEach((val, idx) => { if (val === '') emptyCells.push(idx); });
+        if (emptyCells.length > 0) {
+          move = emptyCells[Math.floor(Math.random() * emptyCells.length)];
+        }
+      }
+
+      if (move !== -1) {
+        setTimeout(() => {
+          if (!gameRunning) return;
+          tBoard[move] = 'O';
+          playSound('bounce');
+          let res = checkTicTacToeWinner(tBoard);
+          if (res) {
+            handleTicTacToeEnd(res);
+          } else {
+            tTurn = 'X';
+          }
+        }, 300);
+      }
+    }
+
+    function handleTicTacToeEnd(result) {
+      gameRunning = false;
+      if (result === 'X') {
+        tWins++;
+        score = tWins * 100;
+        playSound('powerup');
+        endGame(true);
+      } else if (result === 'O') {
+        playSound('lose');
+        endGame(false);
+      } else {
+        playSound('brick');
+        endGame(false, true); // Match nul
+      }
+    }
+
+    function getTicTacToeCoords(e) {
+      const rect = canvas.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      const x = clientX - rect.left - tOffsetX;
+      const y = clientY - rect.top - tOffsetY;
+      const c = Math.floor(x / tCellSize);
+      const r = Math.floor(y / tCellSize);
+      if (c >= 0 && c < 3 && r >= 0 && r < 3) {
+        return r * 3 + c;
+      }
+      return -1;
+    }
 
     // --- CONTROLES DÉMINEUR ---
     function calcMinesGrid() {
@@ -513,10 +632,25 @@
     }
 
     canvas.addEventListener('click', (e) => {
-      if (currentMode !== 'MINES' || !gameRunning) return;
+      if (!gameRunning) return;
       initAudio();
-      const { r, c } = getMinesCoords(e);
-      revealCell(r, c);
+      if (currentMode === 'MINES') {
+        const { r, c } = getMinesCoords(e);
+        revealCell(r, c);
+      } else if (currentMode === 'TICTACTOE' && tTurn === 'X') {
+        const idx = getTicTacToeCoords(e);
+        if (idx !== -1 && tBoard[idx] === '') {
+          tBoard[idx] = 'X';
+          playSound('brick');
+          let res = checkTicTacToeWinner(tBoard);
+          if (res) {
+            handleTicTacToeEnd(res);
+          } else {
+            tTurn = 'O';
+            aiMove();
+          }
+        }
+      }
     });
 
     canvas.addEventListener('contextmenu', (e) => {
@@ -762,6 +896,45 @@
             }
           }
         }
+      } else if (currentMode === 'TICTACTOE') {
+        // Dessin de la grille du morpion
+        ctx.strokeStyle = '#222c3c';
+        ctx.lineWidth = 4;
+        for (let i = 1; i < 3; i++) {
+          // Lignes verticales
+          ctx.beginPath();
+          ctx.moveTo(tOffsetX + i * tCellSize, tOffsetY);
+          ctx.lineTo(tOffsetX + i * tCellSize, tOffsetY + 3 * tCellSize);
+          ctx.stroke();
+          // Lignes horizontales
+          ctx.beginPath();
+          ctx.moveTo(tOffsetX, tOffsetY + i * tCellSize);
+          ctx.lineTo(tOffsetX + 3 * tCellSize, tOffsetY + i * tCellSize);
+          ctx.stroke();
+        }
+        ctx.lineWidth = 1;
+
+        // Dessin des symboles X et O
+        for (let i = 0; i < 9; i++) {
+          const r = Math.floor(i / 3);
+          const c = i % 3;
+          const x = tOffsetX + c * tCellSize + tCellSize / 2;
+          const y = tOffsetY + r * tCellSize + tCellSize / 2;
+
+          if (tBoard[i] === 'X') {
+            ctx.fillStyle = '#39ff14';
+            ctx.font = `bold ${Math.floor(tCellSize * 0.5)}px sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('X', x, y);
+          } else if (tBoard[i] === 'O') {
+            ctx.fillStyle = '#ff2a6d';
+            ctx.font = `bold ${Math.floor(tCellSize * 0.5)}px sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('O', x, y);
+          }
+        }
       }
     }
 
@@ -821,7 +994,24 @@
       mineTimerInterval = setInterval(() => { if (gameRunning && currentMode === 'MINES') mineTimer++; }, 1000);
     }
 
-    function endGame(victory) {
+    function startTicTacToe() {
+      currentMode = 'TICTACTOE';
+      document.getElementById('score-label').innerText = 'VICTOIRES';
+      document.getElementById('mode-label').innerText = 'JEU';
+      document.getElementById('mode-display').innerText = 'TACTIC';
+      document.getElementById('stat-label').innerText = 'TOUR';
+      document.getElementById('hud-right').style.display = 'none';
+      document.getElementById('breaker-controls').classList.add('hidden');
+
+      tWins = 0;
+      initTicTacToe();
+      resize();
+
+      document.getElementById('main-menu').classList.add('hidden');
+      document.getElementById('end-screen').classList.add('hidden');
+    }
+
+    function endGame(victory, isTie = false) {
       gameRunning = false;
       if (mineTimerInterval) clearInterval(mineTimerInterval);
 
@@ -832,6 +1022,9 @@
         hsKey = 'bunker_mines_hs';
         currentVal = mineTimer;
         mineGrid.forEach(row => row.forEach(cell => { if (cell.mine) cell.revealed = true; }));
+      } else if (currentMode === 'TICTACTOE') {
+        hsKey = 'bunker_tictactoe_hs';
+        currentVal = tWins;
       } else {
         playSound('lose');
       }
@@ -842,6 +1035,11 @@
           highscore = mineTimer;
           localStorage.setItem(hsKey, highscore);
         }
+      } else if (currentMode === 'TICTACTOE') {
+        if (tWins > highscore) {
+          highscore = tWins;
+          localStorage.setItem(hsKey, highscore);
+        }
       } else {
         if (score > highscore) {
           highscore = score;
@@ -849,15 +1047,23 @@
         }
       }
 
-      document.getElementById('end-title').innerText = victory ? 'ZONE SÉCURISÉE !' : 'MISSION ÉCHOUÉE';
-      document.getElementById('end-subtitle').innerText = victory ? 'SECTEUR NETTOYÉ AVEC SUCCÈS' : 'DÉTONATION DETECTÉE DANS LE COMPLEXE';
-      
-      if (currentMode === 'MINES') {
+      if (currentMode === 'TICTACTOE') {
+        document.getElementById('end-title').innerText = isTie ? 'MATCH NUL' : (victory ? 'VICTOIRE TACTIQUE !' : 'DÉFAITE FACE À L\'IA');
+        document.getElementById('end-subtitle').innerText = isTie ? 'PERSONNE N\'A PRÉVALU' : (victory ? 'SÉRIE DE VICTOIRES EN COURS' : 'LE PROTOCOLE A ÉCHOUÉ');
+        document.getElementById('end-score-label').innerText = 'Victoires :';
+        document.getElementById('end-hs-label').innerText = 'Record Victoires :';
+        document.getElementById('end-score').innerText = tWins;
+        document.getElementById('end-highscore').innerText = highscore;
+      } else if (currentMode === 'MINES') {
+        document.getElementById('end-title').innerText = victory ? 'ZONE SÉCURISÉE !' : 'MISSION ÉCHOUÉE';
+        document.getElementById('end-subtitle').innerText = victory ? 'SECTEUR NETTOYÉ AVEC SUCCÈS' : 'DÉTONATION DETECTÉE DANS LE COMPLEXE';
         document.getElementById('end-score-label').innerText = 'Temps :';
         document.getElementById('end-hs-label').innerText = 'Meilleur Temps :';
         document.getElementById('end-score').innerText = `${mineTimer}s`;
         document.getElementById('end-highscore').innerText = highscore ? `${highscore}s` : 'N/A';
       } else {
+        document.getElementById('end-title').innerText = victory ? 'ZONE SÉCURISÉE !' : 'MISSION ÉCHOUÉE';
+        document.getElementById('end-subtitle').innerText = victory ? 'SECTEUR NETTOYÉ AVEC SUCCÈS' : 'PÉRIMPÈTRE COMPROMIS';
         document.getElementById('end-score-label').innerText = 'Score Final :';
         document.getElementById('end-hs-label').innerText = 'Record :';
         document.getElementById('end-score').innerText = score;
@@ -869,11 +1075,13 @@
 
     document.getElementById('select-breaker-btn').addEventListener('click', () => { initAudio(); startBreaker(); });
     document.getElementById('select-mines-btn').addEventListener('click', () => { initAudio(); startMines(); });
+    document.getElementById('select-tictactoe-btn').addEventListener('click', () => { initAudio(); startTicTacToe(); });
 
     document.getElementById('restart-btn').addEventListener('click', () => {
       initAudio();
       if (currentMode === 'BREAKER') startBreaker();
-      else startMines();
+      else if (currentMode === 'MINES') startMines();
+      else if (currentMode === 'TICTACTOE') startTicTacToe();
     });
 
     document.getElementById('menu-btn').addEventListener('click', () => {
@@ -890,6 +1098,9 @@
       if (currentMode === 'MINES') {
         gameTitle = 'DÉMINAGE SECTEUR';
         valStr = `Temps d'intervention : **${mineTimer}s**`;
+      } else if (currentMode === 'TICTACTOE') {
+        gameTitle = 'MORPION DU BUNKER';
+        valStr = `Victoires d'affilée : **${tWins}**`;
       }
 
       const text = `☣️ **${gameTitle}** ☣️\n🎮 ${valStr}\n🕹️ *Viens tenter ta chance sur le terminal du bunker !*`;
